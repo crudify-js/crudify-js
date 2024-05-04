@@ -1,0 +1,14 @@
+{
+  "name": "@crudify-js/examples-1",
+  "private": true,
+  "version": "0.0.1",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Matthieu Sieben",
+  "license": "ISC",
+  "dependencies": {
+  },
+  "devDependencies": {
+  }
+}

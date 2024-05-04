@@ -1,0 +1,22 @@
+{
+  "name": "@crudify-js/process",
+  "version": "0.0.1",
+  "author": "Matthieu Sieben",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "tslib": "^2.6.2"
+  },
+  "devDependencies": {
+    "typescript": "next"
+  },
+  "scripts": {
+    "build": "tsc"
+  }
+}

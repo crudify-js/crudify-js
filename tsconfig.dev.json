@@ -1,0 +1,8 @@
+{
+  "include": [],
+  "references": [
+    { "path": "./packages/di" },
+    { "path": "./packages/http" },
+    { "path": "./packages/process" }
+  ]
+}

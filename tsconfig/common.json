@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "strict": true,
+    "allowUnusedLabels": false,
+    "allowUnreachableCode": false,
+    "exactOptionalPropertyTypes": false,
+    "noEmitOnError": false,
+    "noFallthroughCasesInSwitch": false,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": false,
+
+    "checkJs": true,
+
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "types": [],
+    "module": "Node16",
+    "target": "ES2022",
+    "jsx": "preserve",
+    "useDefineForClassFields": true,
+
+    "isolatedModules": true,
+    "moduleResolution": "Node16",
+    "resolveJsonModule": true,
+
+    "importHelpers": true,
+    "composite": true,
+    "sourceMap": true,
+    "declarationMap": true
+  },
+  "typeAcquisition": {
+    "enable": false
+  }
+}

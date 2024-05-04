@@ -1,0 +1,28 @@
+{
+  "name": "@crudify-js/http",
+  "version": "0.0.1",
+  "author": "Matthieu Sieben",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@hapi/accept": "^6.0.3",
+    "@hapi/bourne": "^3.0.0",
+    "cookie": "^0.6.0",
+    "http-errors": "^2.0.0",
+    "tslib": "^2.6.2"
+  },
+  "devDependencies": {
+    "@types/cookie": "^0.6.0",
+    "@types/http-errors": "^2.0.4",
+    "typescript": "next"
+  },
+  "scripts": {
+    "build": "tsc"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "private": true,
+  "devDependencies": {
+    "@types/node": "^20.8.4",
+    "prettier":"^3.2.5",
+    "typescript": "next"
+  },
+  "scripts": {
+    "dev": "tsc --build tsconfig.dev.json --watch"
+  }
+}
