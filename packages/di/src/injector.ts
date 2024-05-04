@@ -1,5 +1,12 @@
-import { Factory, Injectable, InjectableToken, Token, Value } from './types.js'
-import { asInjectables, stringifyToken } from './util.js'
+export type Value = object
+export type Token<V extends Value = Value> = abstract new (...args: any[]) => V
+export type Factory<V extends Value = Value> = (injector: Injector) => V
+
+export type InjectableToken<V extends Value = Value> = new (...args: any[]) => V
+export type Injectable<V extends Value = Value> = readonly [
+  token: Token<V>,
+  factory: Factory<V>,
+]
 
 export class Injector {
   protected factories: Map<Token, Factory>
@@ -9,123 +16,118 @@ export class Injector {
     protected parent?: Injector
   ) {
     this.factories = new Map<Token, Factory>(asInjectables(injectables))
-
-    for (const token of this.factories.keys()) {
-      if (parent?.hasFactory(token)) {
-        throw new TypeError(
-          `${stringifyToken(token)} already exists in parent injector`
-        )
-      }
-    }
   }
 
   fork(injectables?: Iterable<Injectable | InjectableToken>) {
     return new Injector(injectables, this)
   }
 
-  private hasFactory<V extends Value>(
-    token: Token<V>
-  ): undefined | { injector: Injector; factory: Factory<V> } {
-    const factory = this.factories.get(token) as Factory<V> | undefined
-    if (factory) return { injector: this, factory }
-
-    const parentRecipe = this.parent?.hasFactory(token)
-    if (parentRecipe) return parentRecipe
-
-    return undefined
-  }
-
-  private getFactory<V extends Value>(
-    token: Token<V>
-  ): { injector: Injector; factory: Factory<V> } {
-    const result = this.hasFactory(token)
-    if (result) return result
-
-    throw new Error(`No factory for ${stringifyToken(token)}`)
-  }
-
-  private getValue<V extends Value>(
-    token: Token<V>
-  ):
-    | {
-        value: V
-        dependents: Set<Injector>
-      }
-    | undefined {
-    const current = this.instances.get(token)
-    if (current) {
-      const { value, dependents } = current
-      return { value: value as V, dependents }
-    }
-
-    return this.parent?.getValue(token)
-  }
-
   instantiating = new Map<
     Token,
     {
-      dependents: Set<Injector>
+      dependencies: Set<Token>
     }
   >()
   instances = new Map<
     Token,
     {
-      priority: number
+      dependencies: Set<Token>
       value: Value
-      dependents: Set<Injector>
+      priority: number
     }
   >()
 
-  get<V extends Value>(token: Token<V>): V {
-    if (token === (Injector as Token)) return this as unknown as V
+  find<V extends Value>(token: Token<V>): V | undefined {
+    let injector: Injector | undefined = this
+    do {
+      let injectorInstance = injector.instances.get(token)
+      if (!injectorInstance) continue
 
-    const current = this.getValue(token)
-    if (current) {
+      // If any child injector has a different factory for the value or any of
+      // its dependencies, we need to re-instantiate the value so that the
+      // correct factory is used.
+
+      let ancestor: Injector = this
+      while (ancestor !== injector) {
+        if (ancestor.factories.has(token)) return undefined
+        for (const dep of injectorInstance.dependencies) {
+          if (ancestor.factories.has(dep)) return undefined
+        }
+        ancestor = ancestor.parent!
+      }
+
       // All values being instantiates need to be marked as dependents
       // of all the dependents of the current value
-      for (const { dependents } of this.instantiating.values()) {
-        for (const injector of current.dependents) {
-          dependents.add(injector)
+      for (const inst of this.instantiating.values()) {
+        for (const DepToken of injectorInstance.dependencies) {
+          inst.dependencies.add(DepToken)
         }
       }
-      return current.value
-    }
 
-    const { factory, injector } = this.getFactory(token)
+      return injectorInstance.value as V
+    } while ((injector = injector.parent))
 
+    return undefined
+  }
+
+  get<V extends Value>(token: Token<V>): V {
     if (this.instantiating.has(token)) {
       throw new Error(
         `Circular dependency detected for ${stringifyToken(token)}`
       )
     }
 
-    const dependents = new Set<Injector>([])
-    this.instantiating.set(token, { dependents })
+    const current = this.find(token)
+    if (current) return current
+
+    // Find the first ancestor that has a factory for the token
+
+    let injector: Injector | undefined = this
+    let factory: Factory<V> | undefined
+    do {
+      factory = injector.factories.get(token) as Factory<V> | undefined
+      if (factory) break
+    } while ((injector = injector.parent))
+
+    if (!factory) {
+      throw new Error(`No factory for ${stringifyToken(token)}`)
+    }
+
+    const dependencies = new Set<Token>([])
+    this.instantiating.set(token, { dependencies })
     try {
-      for (const { dependents } of this.instantiating.values()) {
-        dependents.add(injector)
+      // Add the current token as a dependency of all the values being
+      // instantiated
+      for (const inst of this.instantiating.values()) {
+        inst.dependencies.add(token)
       }
+
       const value = factory(this)
-      this.set(token, value, dependents)
+
+      // Store the value the oldest ancestor, up to the "injector" that defines
+      // the factory, that has no child injector with a factory for the value or
+      // any of its dependencies.
+
+      let ancestor: Injector = this
+      ancestor: while (ancestor !== injector) {
+        if (ancestor.factories.has(token)) break ancestor
+        for (const dep of dependencies) {
+          if (ancestor.factories.has(dep)) break ancestor
+        }
+        ancestor = ancestor.parent!
+      }
+
+      ancestor.instances.set(token, {
+        dependencies,
+        value,
+        // Make sure the value will be disposed before any other value that was
+        // instantiated before it.
+        priority: ancestor.instances.size,
+      })
+
       return value
     } finally {
       this.instantiating.delete(token)
-    }
-  }
-
-  private set<V extends Value>(
-    token: Token<V>,
-    value: V,
-    dependents: Set<Injector>
-  ): void {
-    if (this.factories.has(token) || dependents.has(this)) {
-      this.instances.set(token, {
-        priority: this.instances.size,
-        value,
-        dependents,
-      })
-    } else {
-      this.parent!.set(token, value, dependents)
     }
   }
 
@@ -152,4 +154,56 @@ export class Injector {
     if (errors.length === 1) throw errors[0]
     if (errors.length > 1) throw new AggregateError(errors, 'Failed to dispose')
   }
+}
+
+function* asInjectables(
+  iterable?: Iterable<InjectableToken | Injectable>
+): Generator<Injectable> {
+  if (iterable) {
+    for (const item of iterable) {
+      yield typeof item === 'function' ? asInjectable(item) : item
+    }
+  }
+}
+
+export function asInjectable<V extends Value = Value>(
+  token: Token<V>,
+  factory: Factory<V>
+): Injectable<V>
+export function asInjectable<V extends Value = Value>(
+  token: InjectableToken<V>
+): Injectable<V>
+export function asInjectable<V extends Value = Value>(
+  token: Token<V>,
+  factory: Factory<V> = buildFactory(token as InjectableToken<V>)
+): Injectable<V> {
+  return [token, factory]
+}
+
+export function buildFactory<V extends Value = Value>(
+  token: InjectableToken<V>
+): Factory<V> {
+  const types: undefined | Token[] = Reflect.getMetadata(
+    'design:paramtypes',
+    token
+  )
+
+  if (types) {
+    return types.length === 0
+      ? () => new token()
+      : (injector) => {
+          const args = types.map((type) => injector.get(type))
+          return new token(...args)
+        }
+  }
+
+  if (token.length === 0) {
+    return () => new token()
+  }
+
+  throw new Error(`${stringifyToken(token)} is not injectable`)
+}
+
+export function stringifyToken(token: Token) {
+  return typeof token === 'function' ? token.name : String(token)
 }

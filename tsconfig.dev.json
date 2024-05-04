@@ -2,6 +2,7 @@
   "include": [],
   "references": [
     { "path": "./packages/di" },
+    { "path": "./packages/di-router" },
     { "path": "./packages/http" },
     { "path": "./packages/process" }
   ]

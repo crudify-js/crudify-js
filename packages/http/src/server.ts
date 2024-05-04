@@ -185,10 +185,10 @@ export function logServerAddress(this: HttpServer | HttpsServer) {
   if (info) {
     const protocol = this instanceof HttpServer ? 'http' : 'https'
     if (typeof info === 'string') {
-      console.log(`${protocol} server listening on ${info}`)
+      console.info(`${protocol} server listening on ${info}`)
     } else {
       const host = info.family === 'IPv4' ? info.address : `[${info.address}]`
-      console.log(`server listening on ${protocol}://${host}:${info.port}`)
+      console.info(`server listening on ${protocol}://${host}:${info.port}`)
     }
   }
 }

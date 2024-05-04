@@ -3,7 +3,7 @@ import { ChildProcess } from 'node:child_process'
 export async function run<T>(
   main: (stopSignal: AbortSignal) => T | PromiseLike<T>,
   onabort = (reason: unknown): void => {
-    console.debug('Shutdown initiated...')
+    console.info('Shutdown initiated...')
     setupTerminator()
   }
 ): Promise<T> {
@@ -47,7 +47,7 @@ export function setupTerminator({
   killTimeout = 30e3,
 }: TerminatorOptions = {}) {
   const seconds = (killTimeout / 1e3).toFixed(1)
-  console.debug(
+  console.info(
     `Send ${signals.join(' or ')} to terminate now (timeout ${seconds}s).`
   )
 
@@ -61,7 +61,7 @@ export function setupTerminator({
 }
 
 function exitNow(cause: string) {
-  console.debug(`Terminating... (${cause})`)
+  console.info(`Terminating... (${cause})`)
   process.exit(0)
 }
 

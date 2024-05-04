@@ -9,11 +9,13 @@ import {
   stringifyToken,
 } from '@crudify-js/di'
 import {
-  IncomingMessage,
+  IncomingMessage as HttpRequest,
   NextFunction,
-  ServerResponse,
+  ServerResponse as HttpResponse,
   asHandler,
 } from '@crudify-js/http'
+
+export { HttpRequest, HttpResponse, type NextFunction }
 
 export function Controller(path: string) {
   return (target: any) => {
@@ -32,87 +34,91 @@ export function Get() {
     methods['GET'] = propertyKey
     Reflect.defineMetadata('router:methods', methods, prototype)
 
-    const types = Reflect.getMetadata(
+    const paramtypes = Reflect.getMetadata(
       'design:paramtypes',
       prototype,
       propertyKey
     ).map((type: unknown) => {
-      // Only keep classes
-      if (typeof type !== 'function') return undefined
-      // Ignore native types
-      if (type === Function) return undefined
-      if (type === Object) return undefined
-      if (type === String) return undefined
-      if (type === Number) return undefined
-      if (type === Boolean) return undefined
-      if (type === Symbol) return undefined
+      switch (type) {
+        case undefined:
+        case Function:
+        case Object:
+        case String:
+        case Number:
+        case Boolean:
+        case Symbol:
+          // Ignore native types
+          return undefined
+      }
+
       return type
     })
 
-    const args =
+    const types =
       Reflect.getMetadata('router:args', prototype, propertyKey) || []
-    for (let i = 0; i < types.length; i++) {
-      if (args[i] == undefined) {
-        if (types[i] == null) {
+    for (let i = 0; i < paramtypes.length; i++) {
+      if (types[i] == undefined) {
+        if (paramtypes[i] == null) {
+          const methodName = `${stringifyToken(prototype.constructor)}.${propertyKey}()`
           throw new Error(
-            `Missing type for argument ${i} in ${stringifyToken(prototype)}.${propertyKey}(). Please use a decorator to specify the type of the argument.`
+            `Unable to determine injection Token for argument ${i} in ${methodName}.`
           )
         }
 
-        args[i] = types[i]
+        types[i] = paramtypes[i]
       }
     }
 
-    if (args.some((arg: unknown) => arg === undefined)) {
+    if (types.some((arg: unknown) => arg === undefined)) {
       throw new Error('Missing argument')
     }
 
-    Reflect.defineMetadata('router:args', args, prototype, propertyKey)
+    Reflect.defineMetadata('router:args', types, prototype, propertyKey)
   }
 }
 
 export function Req() {
   return (target: any, propertyKey: string, parameterIndex: number) => {
     const args = Reflect.getMetadata('router:args', target, propertyKey) || []
-    args[parameterIndex] = IncomingMessage
+    args[parameterIndex] = HttpRequest
     Reflect.defineMetadata('router:args', args, target, propertyKey)
   }
 }
 
 export abstract class Next extends abstractToken<NextFunction>() {}
 
-interface HttpHandler {
-  handle(): Promise<void>
+abstract class HttpHandler {
+  constructor(
+    readonly controller: Record<string, Function>,
+    readonly methodName: string,
+    readonly args: Value[]
+  ) {}
+
+  async handle() {
+    return this.controller[this.methodName]!(...this.args)
+  }
 }
 
 @Inject()
 export abstract class Router extends abstractToken<
-  Map<string, new (..._: any[]) => HttpHandler>
+  Map<string, typeof HttpHandler>
 >() {
   static middleware(injector: Injector) {
     return asHandler(async (req, res, next) => {
-      const myNext = (err: unknown) => {
-        console.error('myNext', err)
-        next(err)
-      }
-
       // We can't use "await using" here because we don't want the injector to
       // be disposed when this function returns. The reason of this is that the
       // injector will destroy the injected values, including "req".
 
       const requestInjector = injector.fork([
-        [IncomingMessage, () => req],
-        [ServerResponse, () => res],
-        Next.inject(myNext),
+        [HttpRequest, () => req],
+        [HttpResponse, () => res],
+        Next.inject(next),
       ])
 
-      const dispose = async () => {
-        try {
-          await requestInjector[Symbol.asyncDispose]()
-        } catch (err) {
-          console.error('Error disposing requestInjector', err)
-          throw err // will cause an unhandled promise rejection
-        }
+      const dispose = () => {
+        // Will cause "unhandledRejection" if an error occurs (should
+        // we allow to define a catcher for this?)
+        void requestInjector[Symbol.asyncDispose]()
       }
 
       res.on('finish', dispose)
@@ -120,13 +126,13 @@ export abstract class Router extends abstractToken<
       try {
         await requestInjector.get(Router).handle(requestInjector)
       } catch (err) {
-        myNext(err)
+        next(err)
       }
     })
   }
 
   static *create(routes: Iterable<InjectableToken>): Generator<Injectable> {
-    const handlers = new Map<string, new (..._: any[]) => HttpHandler>()
+    const handlers = new Map<string, typeof HttpHandler>()
 
     for (const Controller of routes) {
       const url = Reflect.getMetadata('router:path', Controller)
@@ -150,39 +156,19 @@ export abstract class Router extends abstractToken<
             propertyKey
           ) || []
 
-        @Inject()
-        class Handler implements HttpHandler {
-          controller: Record<string, Function>
-          args: Value[]
-          constructor(
-            readonly res: ServerResponse,
-            injector: Injector
-          ) {
-            this.controller = injector.get(Controller) as Record<
-              string,
-              Function
-            >
-            this.args = types.map((arg) => injector.get(arg))
-
-            console.log(`Constructing Handler(${method}:${url})`)
-          }
-
-          async handle() {
-            const result = await this.controller[propertyKey]!(...this.args)
-            this.res.end(result)
-          }
-
-          [Symbol.dispose]() {
-            console.error(`Disposing Handler(${method}:${url})`)
-          }
-        }
+        // Create a new "injection token" for the handler
+        class Handler extends HttpHandler {}
 
         yield asInjectable(Handler, (injector) => {
-          // TODO: load controller & args from here
-
-          // TODO: do not allow Injector to inject itselg
-          return new Handler(injector.get(ServerResponse), injector)
+          const controller = injector.get(
+            Controller
+          ) as HttpHandler['controller']
+          const args = types.map((arg) => injector.get(arg))
+          return new Handler(controller, propertyKey, args)
         })
+
+        // Allow the router's handle() method to find the handler's injection
+        // token by using the method and url as the key.
         handlers.set(`${method}:${url}`, Handler)
       }
     }
@@ -191,23 +177,13 @@ export abstract class Router extends abstractToken<
   }
 
   async handle(requestInjector: Injector) {
-    const req = requestInjector.get(IncomingMessage)
-    const { method = 'GET', url = '/' } = req
-
-    console.log(`router.handle(${method}:${url})`)
+    const { method = 'GET', url = '/' } = requestInjector.get(HttpRequest)
 
     const Handler =
       this.value.get(`${method}:${url}`) || this.value.get(`*:${url}`)
     if (!Handler) return requestInjector.get(Next).value()
 
-    try {
-      await requestInjector.get(Handler).handle()
-    } catch (err) {
-      return requestInjector.get(Next).value(err)
-    }
-  }
-
-  [Symbol.dispose]() {
-    console.log(`Disposing Router`)
+    const result = await requestInjector.get(Handler).handle()
+    requestInjector.get(HttpResponse).end(result)
   }
 }
