@@ -2,8 +2,8 @@ export type Value = object
 export type Token<V extends Value = Value> = abstract new (...args: any[]) => V
 export type Factory<V extends Value = Value> = (injector: Injector) => V
 
-export type InjectableToken<V extends Value = Value> = new (...args: any[]) => V
-export type Injectable<V extends Value = Value> = readonly [
+export type Instantiable<V extends Value = Value> = new (...args: any[]) => V
+export type Definition<V extends Value = Value> = readonly [
   token: Token<V>,
   factory: Factory<V>,
 ]
@@ -12,14 +12,14 @@ export class Injector {
   protected factories: Map<Token, Factory>
 
   constructor(
-    injectables?: Iterable<Injectable | InjectableToken>,
+    definitions?: Iterable<Definition | Instantiable>,
     protected parent?: Injector
   ) {
-    this.factories = new Map<Token, Factory>(asInjectables(injectables))
+    this.factories = new Map<Token, Factory>(asDefinitions(definitions))
   }
 
-  fork(injectables?: Iterable<Injectable | InjectableToken>) {
-    return new Injector(injectables, this)
+  fork(definitions?: Iterable<Definition | Instantiable>) {
+    return new Injector(definitions, this)
   }
 
   instantiating = new Map<
@@ -156,33 +156,36 @@ export class Injector {
   }
 }
 
-function* asInjectables(
-  iterable?: Iterable<InjectableToken | Injectable>
-): Generator<Injectable> {
+function* asDefinitions(
+  iterable?: Iterable<Instantiable | Definition>
+): Generator<Definition> {
   if (iterable) {
     for (const item of iterable) {
-      yield typeof item === 'function' ? asInjectable(item) : item
+      yield typeof item === 'function' ? define(item) : item
     }
   }
 }
 
-export function asInjectable<V extends Value = Value>(
+export function define<V extends Value = Value>(
   token: Token<V>,
   factory: Factory<V>
-): Injectable<V>
-export function asInjectable<V extends Value = Value>(
-  token: InjectableToken<V>
-): Injectable<V>
-export function asInjectable<V extends Value = Value>(
+): Definition<V>
+export function define<V extends Value = Value>(
+  token: Instantiable<V>
+): Definition<V>
+export function define<V extends Value = Value>(
   token: Token<V>,
-  factory: Factory<V> = buildFactory(token as InjectableToken<V>)
-): Injectable<V> {
+  factory: Factory<V> = buildFactory(token as Instantiable<V>)
+): Definition<V> {
   return [token, factory]
 }
 
 export function buildFactory<V extends Value = Value>(
-  token: InjectableToken<V>
+  token: Instantiable<V>
 ): Factory<V> {
+  const factory = Reflect.getMetadata('injectable:factory', token)
+  if (factory) return factory
+
   const types: undefined | Token[] = Reflect.getMetadata(
     'design:paramtypes',
     token

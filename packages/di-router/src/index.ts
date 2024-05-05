@@ -1,11 +1,11 @@
 import {
-  Inject,
   Injectable,
-  InjectableToken,
+  Definition,
+  Instantiable,
   Injector,
   Value,
   abstractToken,
-  asInjectable,
+  define,
   stringifyToken,
 } from '@crudify-js/di'
 import {
@@ -99,7 +99,7 @@ abstract class HttpHandler {
   }
 }
 
-@Inject()
+@Injectable()
 export abstract class Router extends abstractToken<
   Map<string, typeof HttpHandler>
 >() {
@@ -110,9 +110,9 @@ export abstract class Router extends abstractToken<
       // injector will destroy the injected values, including "req".
 
       const requestInjector = injector.fork([
-        [HttpRequest, () => req],
-        [HttpResponse, () => res],
-        Next.inject(next),
+        define(HttpRequest, () => req),
+        define(HttpResponse, () => res),
+        Next.define(next),
       ])
 
       const dispose = () => {
@@ -131,7 +131,9 @@ export abstract class Router extends abstractToken<
     })
   }
 
-  static *create(routes: Iterable<InjectableToken>): Generator<Injectable> {
+  static *create(
+    routes: Iterable<Instantiable>
+  ): Generator<Definition | Instantiable> {
     const handlers = new Map<string, typeof HttpHandler>()
 
     for (const Controller of routes) {
@@ -146,10 +148,10 @@ export abstract class Router extends abstractToken<
       )
       if (!methods) continue // No method in controller
 
-      yield asInjectable(Controller)
+      yield define(Controller)
 
       for (const [method, propertyKey] of Object.entries(methods)) {
-        const types: InjectableToken[] =
+        const types: Instantiable[] =
           Reflect.getMetadata(
             'router:args',
             Controller.prototype,
@@ -157,15 +159,16 @@ export abstract class Router extends abstractToken<
           ) || []
 
         // Create a new "injection token" for the handler
-        class Handler extends HttpHandler {}
-
-        yield asInjectable(Handler, (injector) => {
+        @Injectable((injector) => {
           const controller = injector.get(
             Controller
           ) as HttpHandler['controller']
           const args = types.map((arg) => injector.get(arg))
           return new Handler(controller, propertyKey, args)
         })
+        class Handler extends HttpHandler {}
+
+        yield Handler
 
         // Allow the router's handle() method to find the handler's injection
         // token by using the method and url as the key.
@@ -173,7 +176,7 @@ export abstract class Router extends abstractToken<
       }
     }
 
-    yield this.inject(handlers)
+    yield this.define(handlers)
   }
 
   async handle(requestInjector: Injector) {

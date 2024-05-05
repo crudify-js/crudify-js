@@ -12,7 +12,7 @@ import { RequestLogger } from './services/request-logger.js'
 export async function main(signal: AbortSignal, cfg?: ConfigValue) {
   await using injector = new Injector([
     // Global services
-    cfg ? Config.inject(cfg) : Config.fromEnv(),
+    cfg ? Config.define(cfg) : Config.fromEnv(),
     Logger,
   ])
 

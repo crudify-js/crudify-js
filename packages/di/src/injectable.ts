@@ -1,25 +1,25 @@
 import 'reflect-metadata'
 import {
-  Injectable,
-  InjectableToken,
+  Definition,
+  Instantiable,
   Token,
   Value,
-  asInjectable,
+  define,
   buildFactory,
 } from './injector.js'
 
 export function overrideToken<V extends Value = Value>(
   token: Token<V>,
-  override: InjectableToken<V>
+  override: Instantiable<V>
 ) {
-  return asInjectable(token, buildFactory(override))
+  return define(token, buildFactory(override))
 }
 
 export function abstractToken<T>() {
   abstract class AbstractValue {
     abstract value: T
 
-    static inject(value: T): Injectable<AbstractValue> {
+    static define(value: T): Definition<AbstractValue> {
       class Value extends this {
         static override get name() {
           return super.name // Improves debugging
@@ -28,7 +28,7 @@ export function abstractToken<T>() {
           return value
         }
       }
-      return [this, buildFactory(Value)]
+      return overrideToken(this, Value)
     }
   }
   return AbstractValue

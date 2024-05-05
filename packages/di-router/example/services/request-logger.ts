@@ -1,9 +1,9 @@
-import { Inject } from '@crudify-js/di'
+import { Injectable } from '@crudify-js/di'
 import { HttpRequest } from '@crudify-js/di-router'
 import { Config } from './config.js'
 import { Logger } from './logger.js'
 
-@Inject()
+@Injectable()
 export class RequestLogger extends Logger {
   url: string
 

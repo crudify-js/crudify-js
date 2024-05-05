@@ -1,7 +1,7 @@
-import { Inject } from '@crudify-js/di'
+import { Injectable } from '@crudify-js/di'
 import { Config } from './config.js'
 
-@Inject()
+@Injectable()
 export class Logger {
   constructor(readonly config: Config) {}
 
