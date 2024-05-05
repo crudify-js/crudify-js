@@ -132,6 +132,7 @@ export class Injector {
   }
 
   async [Symbol.asyncDispose]() {
+    console.debug('Disposing', this)
     const errors: unknown[] = []
     const instances = Array.from(this.instances.values())
       .sort((a, b) => b.priority - a.priority)
@@ -175,29 +176,70 @@ export function define<V extends Value = Value>(
 ): Definition<V>
 export function define<V extends Value = Value>(
   token: Token<V>,
-  factory: Factory<V> = buildFactory(token as Instantiable<V>)
+  factory: Factory<V> = asFactory(token as Instantiable<V>)
 ): Definition<V> {
   return [token, factory]
 }
 
-export function buildFactory<V extends Value = Value>(
+export function ifToken(value: unknown): Token | undefined {
+  if (typeof value !== 'function') {
+    return undefined
+  }
+  switch (value) {
+    // Ignore native types
+    case Function:
+    case Object:
+    case String:
+    case Number:
+    case Boolean:
+    case Symbol:
+      return undefined
+    // Ignore collections
+    case Map:
+    case Set:
+      return undefined
+  }
+
+  return value as Token
+}
+
+export function getInstantiationTokens(
+  instantiable: Instantiable
+): undefined | Token[] {
+  const paramtypes = Reflect.getMetadata('design:paramtypes', instantiable)
+  if (paramtypes == null) return undefined
+
+  if (!Array.isArray(paramtypes)) {
+    throw new TypeError(
+      `Invalid paramtypes for ${stringifyToken(instantiable)}. Expected an array, got ${paramtypes}.`
+    )
+  }
+
+  const tokens = paramtypes.map(ifToken)
+
+  for (let i = 0; i < tokens.length; i++) {
+    if (tokens[i] == null) {
+      throw new Error(
+        `Unknown type for parameter ${i} of ${stringifyToken(instantiable)}.`
+      )
+    }
+  }
+
+  return tokens as Token[]
+}
+
+export function asFactory<V extends Value = Value>(
   token: Instantiable<V>
 ): Factory<V> {
   const factory = Reflect.getMetadata('injectable:factory', token)
   if (factory) return factory
 
-  const types: undefined | Token[] = Reflect.getMetadata(
-    'design:paramtypes',
-    token
-  )
-
-  if (types) {
-    return types.length === 0
-      ? () => new token()
-      : (injector) => {
-          const args = types.map((type) => injector.get(type))
-          return new token(...args)
-        }
+  const tokens = getInstantiationTokens(token)
+  if (tokens?.length) {
+    return (injector) => {
+      const args = tokens.map((type) => injector.get(type))
+      return new token(...args)
+    }
   }
 
   if (token.length === 0) {

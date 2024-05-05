@@ -5,14 +5,14 @@ import {
   Token,
   Value,
   define,
-  buildFactory,
+  asFactory,
 } from './injector.js'
 
 export function overrideToken<V extends Value = Value>(
   token: Token<V>,
   override: Instantiable<V>
 ) {
-  return define(token, buildFactory(override))
+  return define(token, asFactory(override))
 }
 
 export function abstractToken<T>() {
