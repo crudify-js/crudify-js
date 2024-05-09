@@ -6,15 +6,16 @@ import {
   Value,
   abstractToken,
   define,
-  stringifyToken,
+  getTokens,
+  stringify,
 } from '@crudify-js/di'
 import {
   IncomingMessage as HttpRequest,
   ServerResponse as HttpResponse,
   asHandler,
 } from '@crudify-js/http'
-import { HttpHandler, Next } from './tokens.js'
-import { getParamTokens } from './utils.js'
+import { HttpHandler } from './handler.js'
+import { NextFn } from './tokens.js'
 
 @Injectable()
 export abstract class Router extends abstractToken<
@@ -29,7 +30,7 @@ export abstract class Router extends abstractToken<
       const requestInjector = injector.fork([
         define(HttpRequest, () => req),
         define(HttpResponse, () => res),
-        Next.define(next),
+        NextFn.define(next),
       ])
 
       const dispose = () => {
@@ -57,7 +58,7 @@ export abstract class Router extends abstractToken<
     for (const Controller of routes) {
       const url = Reflect.getMetadata('router:path', Controller)
       if (!url) {
-        throw new Error(`${stringifyToken(Controller)} is not a controller`)
+        throw new Error(`${stringify(Controller)} is not a controller`)
       }
 
       const methods: Record<string, string> = Reflect.getMetadata(
@@ -65,21 +66,21 @@ export abstract class Router extends abstractToken<
         Controller.prototype
       )
       if (!methods) {
-        console.debug(`${stringifyToken(Controller)} has no methods`)
+        console.debug(`${stringify(Controller)} has no methods`)
         continue
       }
 
       yield define(Controller)
 
       for (const [method, propertyKey] of Object.entries(methods)) {
-        const paramTokens = getParamTokens(Controller.prototype, propertyKey)
+        const tokens = getTokens(Controller.prototype, propertyKey)
 
         // Create a dedicated token for the current handler
         @Injectable((injector) => {
           const controller = injector.get(
             Controller
           ) as HttpHandler['controller']
-          const args: Value[] = paramTokens.map((token) => injector.get(token))
+          const args: Value[] = tokens.map((token) => injector.get(token))
           return new Handler(controller, propertyKey, args)
         })
         class Handler extends HttpHandler {}
@@ -100,7 +101,7 @@ export abstract class Router extends abstractToken<
 
     const Handler =
       this.value.get(`${method}:${url}`) || this.value.get(`*:${url}`)
-    if (!Handler) return requestInjector.get(Next).value()
+    if (!Handler) return requestInjector.get(NextFn).value()
 
     const result = await requestInjector.get(Handler).handle()
     requestInjector.get(HttpResponse).end(result)

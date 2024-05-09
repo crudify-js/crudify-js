@@ -5,7 +5,8 @@ import { Logger } from '../services/logger.js'
 export class Home {
   @Get()
   async home(request: HttpRequest, logger: Logger) {
-    logger.log('Home: ' + request.url)
-    return 'Home'
+    const response = `Home (url:${request.url})`
+    logger.log(response)
+    return response
   }
 }
