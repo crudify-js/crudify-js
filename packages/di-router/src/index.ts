@@ -3,7 +3,7 @@ export * from './router.js'
 export * from './tokens.js'
 
 export {
-  IncomingMessage as HttpRequest,
-  ServerResponse as HttpResponse,
+  IncomingMessage,
+  ServerResponse,
   type NextFunction,
 } from '@crudify-js/http'

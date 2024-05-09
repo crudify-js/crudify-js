@@ -1,13 +1,9 @@
-import { Inject, getTokens } from '@crudify-js/di'
-import {
-  IncomingMessage as HttpRequest,
-  ServerResponse as HttpResponse,
-} from '@crudify-js/http'
-import { NextFn } from './tokens.js'
+import { InjectFactory, getFactories } from '@crudify-js/di'
+import { HttpRequest, HttpResponse, NextFn } from './tokens.js'
 
-export const Req = Inject(HttpRequest)
-export const Res = Inject(HttpResponse)
-export const Next = Inject(NextFn)
+export const Req = InjectFactory((injector) => injector.get(HttpRequest).value)
+export const Res = InjectFactory((injector) => injector.get(HttpResponse).value)
+export const Next = InjectFactory((injector) => injector.get(NextFn).value)
 
 // TODO: add "path?: string" parameter to allow to define a custom sub-path
 // to the controller's path.
@@ -32,7 +28,7 @@ function createMethodDecorator(method: string) {
       // tokens are available when the handler is created. This will allow to
       // throw and error when the class is created rather than when the http
       // request is received.
-      getTokens(prototype, propertyKey)
+      getFactories(prototype, propertyKey)
     }
   }
 }

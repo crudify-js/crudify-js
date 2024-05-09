@@ -1,108 +1,117 @@
-export type Value = object
-export type Token<V extends Value = Value> = abstract new (...args: any[]) => V
+// Circular dep. Only use type imports!
+import type { Factory, Injector } from './injector.js'
+import { getDecoratedFunction } from './util.js'
 
-// Generic types that can be set as "design:paramtypes" metadata by TypeScript.
-export const INVALID_TOKENS = new Set<Function>([
-  Array,
-  ArrayBuffer,
-  Boolean,
-  DataView,
-  Date,
-  Error,
-  EvalError,
-  Float32Array,
-  Float64Array,
-  Function,
-  Int16Array,
-  Int32Array,
-  Int8Array,
-  Map,
-  Number,
-  Object,
-  Promise,
-  RangeError,
-  ReferenceError,
-  RegExp,
-  Set,
-  SharedArrayBuffer,
-  String,
-  Symbol,
-  SyntaxError,
-  TypeError,
-  URIError,
-  Uint16Array,
-  Uint32Array,
-  Uint8Array,
-  Uint8ClampedArray,
-  WeakMap,
-  WeakSet,
-])
+export type Value = unknown
+export type Token<V extends Value = Value> =
+  | string
+  | symbol
+  | (abstract new (...args: any[]) => V)
 
 export function isToken(value: unknown): value is Token {
   switch (typeof value) {
     case 'function':
-      return !INVALID_TOKENS.has(value)
+    case 'string':
+    case 'symbol':
+      return true
     default:
       return false
   }
 }
 
-/**
- * @example
- * ```ts
- * getTokens(myFunction)
- * ```
- * @example
- * ```ts
- * getTokens(myClass)
- * ```
- */
-export function getTokens(target: Function): Token[]
+export function getParams(target: Function): (injector: Injector) => Value[]
+export function getParams(
+  target: Object,
+  key: string | symbol
+): (injector: Injector) => Value[]
+export function getParams(
+  target: Object,
+  key?: string | symbol
+): (injector: Injector) => Value[] {
+  const tokens = getFactories(target, key as any)
+  return (injector) => tokens.map(callWithThis, injector)
+}
+
+function callWithThis<T, R>(this: T, fn: (arg: T) => R): R {
+  return fn(this)
+}
 
 /**
  * @example
  * ```ts
- * getTokens(myPrototype, 'myMethodName')
+ * getFactories(myFunction)
  * ```
  * @example
  * ```ts
- * getTokens(myPrototype, Symbol.disposable)
+ * getFactories(myClass)
  * ```
  */
-export function getTokens(target: Object, key: string | symbol): Token[]
-export function getTokens(target: Object, key?: string | symbol): Token[] {
+export function getFactories(target: Function): Factory[]
+
+/**
+ * @example
+ * ```ts
+ * getFactories(myPrototype, 'myMethodName')
+ * ```
+ * @example
+ * ```ts
+ * getFactories(myPrototype, Symbol.disposable)
+ * ```
+ */
+export function getFactories(target: Object, key: string | symbol): Factory[]
+export function getFactories(target: Object, key?: string | symbol): Factory[] {
   const types = getArrayMetadata('design:paramtypes', target, key)
-  const injectTokens = getArrayMetadata('inject:tokens', target, key)
+  const injectFactories = getArrayMetadata('inject:factories', target, key)
 
-  const tokens: Token[] = []
-  const item: unknown = key === undefined ? target : (target as any)?.[key]
+  const factories: Factory[] = []
+  const item = getDecoratedFunction(target, key)
 
-  if (
-    typeof item !== 'function' ||
-    (typeof target !== 'object' && key !== undefined)
-  ) {
+  if (!item) {
     throw new TypeError(
-      `getTokens() must be used on a function, constructor or prototype method.`
+      `getFactories() must be used on a function, constructor or prototype method.`
     )
   }
 
   const length = Math.max(
     item.length,
     types?.length ?? 0,
-    injectTokens?.length ?? 0
+    injectFactories?.length ?? 0
   )
+
   for (let i = 0; i < length; i++) {
-    const token = injectTokens?.[i] ?? types?.[i]
-    if (!isToken(token)) {
-      const targetStr = stringifyTarget(target, key)
-      throw new Error(
-        `Unable to determine injection token for parameter ${i} of ${targetStr}.`
-      )
-    }
-    tokens.push(token)
+    const factory =
+      (injectFactories?.[i] as Factory | undefined) ??
+      buildFactory(types?.[i], i, target, key)
+
+    factories.push(factory)
   }
 
-  return tokens
+  return factories
+}
+
+function buildFactory(
+  type: unknown,
+  parameterIndex: number,
+  target: Object,
+  key?: string | symbol
+): Factory {
+  if (isToken(type)) {
+    return (injector) => {
+      try {
+        return injector.get(type)
+      } catch (cause) {
+        throw new Error(
+          `Error while resolving parameter ${parameterIndex} of ${stringifyTarget(target, key)}`,
+          { cause }
+        )
+      }
+    }
+  }
+
+  const targetStr = stringifyTarget(target, key)
+  throw new Error(
+    `Unable to determine injection token for parameter ${parameterIndex} of ${targetStr}.`
+  )
 }
 
 export function stringify(token: unknown) {

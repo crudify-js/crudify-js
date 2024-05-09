@@ -1,4 +1,4 @@
-import { Token, Value, getTokens, stringify } from './token.js'
+import { Token, Value, getParams, stringify } from './token.js'
 
 export type { Token, Value }
 export type Factory<V extends Value = Value> = (injector: Injector) => V
@@ -261,9 +261,9 @@ export function asFactory<V extends Value = Value>(
   const factory = Reflect.getMetadata('injectable:factory', token)
   if (factory) return factory
 
-  const tokens = getTokens(token)
+  const params = getParams(token)
   return (injector) => {
-    const args = tokens.map((type) => injector.get(type))
+    const args = params(injector)
     return new token(...args)
   }
 }

@@ -1,5 +1,5 @@
 import { Injectable } from '@crudify-js/di'
-import { HttpRequest } from '@crudify-js/di-router'
+import { IncomingMessage, Req } from '@crudify-js/di-router'
 import { Config } from './config.js'
 import { Logger } from './logger.js'
 
@@ -7,7 +7,7 @@ import { Logger } from './logger.js'
 export class RequestLogger extends Logger {
   url: string
 
-  constructor(config: Config, req: HttpRequest) {
+  constructor(config: Config, @Req req: IncomingMessage) {
     super(config)
 
     const reqOrigin = config.http.trustProxy ? requestOrigin(req) : null
@@ -21,7 +21,7 @@ export class RequestLogger extends Logger {
   }
 }
 
-function requestOrigin(req: HttpRequest) {
+function requestOrigin(req: IncomingMessage) {
   const host = req.headers['x-forwarded-host'] || req.headers['host']
   if (!host) return null
 

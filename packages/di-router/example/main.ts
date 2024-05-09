@@ -1,4 +1,4 @@
-import { Injector, overrideToken } from '@crudify-js/di'
+import { Injector, define, overrideToken } from '@crudify-js/di'
 import { Router } from '@crudify-js/di-router'
 import { startServer } from '@crudify-js/http'
 import { createServer } from 'node:http'
@@ -19,6 +19,7 @@ export async function main(signal: AbortSignal, cfg?: ConfigValue) {
   await using routerInjector = injector.fork([
     // Router specific overrides of global services
     overrideToken(Logger, RequestLogger),
+    define('origin', (injector) => injector.get(Config).http.origin),
 
     // Router specific services
     ...Router.create([Home]),
