@@ -1,45 +1,91 @@
-import { InjectFactory, getFactories } from '@crudify-js/di'
-import { HttpRequest, HttpResponse, NextFn } from './tokens.js'
+import { Computed } from '@crudify-js/di'
+import {
+  HttpMethod,
+  HttpParams,
+  HttpQuery,
+  HttpRequest,
+  HttpResponse,
+  HttpUrl,
+  NextFn,
+} from './tokens.js'
 
-export const Req = InjectFactory((injector) => injector.get(HttpRequest).value)
-export const Res = InjectFactory((injector) => injector.get(HttpResponse).value)
-export const Next = InjectFactory((injector) => injector.get(NextFn).value)
+export const Req = Computed({
+  inject: [HttpRequest],
+  useFactory: (i: HttpRequest) => i.value,
+})
+export const Res = Computed({
+  inject: [HttpResponse],
+  useFactory: (i: HttpResponse) => i.value,
+})
+export const Next = Computed({
+  inject: [NextFn],
+  useFactory: (i: NextFn) => i.value,
+})
+export const Method = Computed({
+  inject: [HttpMethod],
+  useFactory: (i: HttpMethod) => i.value,
+})
+export const Query = Computed({
+  inject: [HttpQuery],
+  useFactory: (i: HttpQuery) => i.value,
+})
+export const Url = Computed({
+  inject: [HttpUrl],
+  useFactory: (i: HttpUrl) => i.value,
+})
+export const Params = Computed({
+  inject: [HttpParams],
+  useFactory: (i: HttpParams) => i.value,
+})
+export const Param = (name: string) =>
+  Computed({
+    inject: [HttpParams],
+    useFactory: ({ value }: HttpParams) => {
+      if (!Object.hasOwn(value, name)) {
+        throw new Error(`Param ${name} not found`)
+      }
+      return value[name]
+    },
+  })
 
-// TODO: add "path?: string" parameter to allow to define a custom sub-path
-// to the controller's path.
-function addMethodHandler(prototype: any, propertyKey: string, method: string) {
-  const methods = Reflect.getMetadata('router:methods', prototype) || {}
-  if (methods[method]) throw new Error('Method already defined')
-  methods[method] = propertyKey
-  Reflect.defineMetadata('router:methods', methods, prototype)
+function addMethodHandler(
+  prototype: any,
+  propertyKey: string,
+  httpVerbs: string[],
+  httpPath = ''
+) {
+  const routerMethods = Reflect.getMetadata('router:methods', prototype) || {}
+
+  routerMethods[propertyKey] ??= {}
+
+  routerMethods[propertyKey][httpPath] = Array.isArray(
+    routerMethods[propertyKey][httpPath]
+  )
+    ? [...routerMethods[propertyKey][httpPath], ...httpVerbs]
+    : httpVerbs
+
+  Reflect.defineMetadata('router:methods', routerMethods, prototype)
 }
 
-function createMethodDecorator(method: string) {
-  // TODO: add "path?: string" parameter to allow to define a custom sub-path
-  // to the controller's path.
-  return () => {
+function createMethodDecorator(...httpVerbs: string[]) {
+  return (httpPath?: string) => {
     return (
-      prototype: any,
+      prototype: Object,
       propertyKey: string,
       descriptor: PropertyDescriptor
     ) => {
-      addMethodHandler(prototype, propertyKey, method)
-      // Will also be called during instantiation. Calling here to ensure that the
-      // tokens are available when the handler is created. This will allow to
-      // throw and error when the class is created rather than when the http
-      // request is received.
-      getFactories(prototype, propertyKey)
+      addMethodHandler(prototype, propertyKey, httpVerbs, httpPath)
     }
   }
 }
 
+export const Delete = createMethodDecorator('DELETE')
 export const Get = createMethodDecorator('GET')
 export const Post = createMethodDecorator('POST')
-export const Delete = createMethodDecorator('DELETE')
 export const Put = createMethodDecorator('PUT')
 
-export function Controller(path: string) {
+export function Controller(path?: string) {
   return (target: any) => {
-    Reflect.defineMetadata('router:path', path, target)
+    Reflect.defineMetadata('router:controller', { path }, target)
   }
 }

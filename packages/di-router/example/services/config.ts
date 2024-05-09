@@ -13,7 +13,7 @@ export type ConfigValue = {
 
 export abstract class Config extends abstractToken<ConfigValue>() {
   static fromEnv(env = process.env) {
-    return this.define({
+    return this.provideValue({
       http: {
         trustProxy: env['TRUST_PROXY'] === 'true',
         port: env['PORT'] ?? '3000',

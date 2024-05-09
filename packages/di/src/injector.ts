@@ -1,13 +1,14 @@
-import { Token, Value, getParams, stringify } from './token.js'
+import {
+  Factory,
+  Instantiable,
+  Provider,
+  compileProviders,
+} from './providers.js'
+import { Token, Value } from './token.js'
+import { stringify } from './util.js'
 
 export type { Token, Value }
-export type Factory<V extends Value = Value> = (injector: Injector) => V
-
-export type Instantiable<V extends Value = Value> = new (...args: any[]) => V
-export type Definition<V extends Value = Value> = readonly [
-  token: Token<V>,
-  factory: Factory<V>,
-]
+export type { Instantiable, Provider }
 
 function throwParentDisposedBeforeChildren() {
   throw new Error(
@@ -37,10 +38,10 @@ export class Injector {
   >()
 
   constructor(
-    definitions?: Iterable<Definition | Instantiable>,
+    providers?: Iterable<Provider | Instantiable>,
     protected parent?: Injector
   ) {
-    this.factories = new Map<Token, Factory>(asDefinitions(definitions))
+    this.factories = new Map<Token, Factory>(compileProviders(providers))
 
     if (parent) {
       const unListen = parent.onDispose(throwParentDisposedBeforeChildren)
@@ -74,8 +75,8 @@ export class Injector {
     }
   }
 
-  fork(definitions?: Iterable<Definition | Instantiable>) {
-    return new Injector(definitions, this)
+  fork(providers?: Iterable<Provider | Instantiable>) {
+    return new Injector(providers, this)
   }
 
   find<V extends Value>(token: Token<V>): V | undefined {
@@ -131,7 +132,15 @@ export class Injector {
     return false
   }
 
-  get<V extends Value>(token: Token<V>): V {
+  get<V extends Value>(
+    token: Token<V>,
+    options: { optional: true }
+  ): V | undefined
+  get<V extends Value>(token: Token<V>, options?: { optional?: false }): V
+  get<V extends Value>(
+    token: Token<V>,
+    options?: { optional?: boolean }
+  ): V | undefined {
     // These checks are already done in this.find()
     // this.throwIfDisposed()
     // this.throwIfInstantiating(token)
@@ -148,6 +157,7 @@ export class Injector {
     } while (!factory && (factoryInjector = factoryInjector.parent))
 
     if (!factory || !factoryInjector) {
+      if (options?.optional === true) return undefined
       throw new Error(`No factory for ${stringify(token)}`)
     }
 
@@ -227,43 +237,5 @@ export class Injector {
       const message = 'An error occurred while disposing the injector.'
       throw new AggregateError(errors, message)
     }
-  }
-}
-
-function* asDefinitions(
-  iterable?: Iterable<Instantiable | Definition>
-): Generator<Definition> {
-  if (iterable) {
-    for (const item of iterable) {
-      yield typeof item === 'function' ? define(item) : item
-    }
-  }
-}
-
-export function define<V extends Value = Value>(
-  token: Token<V>,
-  factory: Factory<V>
-): Definition<V>
-export function define<V extends Value = Value>(
-  token: Instantiable<V>
-): Definition<V>
-export function define<V extends Value = Value>(
-  token: Token<V>,
-  factory: Factory<V> = asFactory(token as Instantiable<V>)
-): Definition<V> {
-  return [token, factory]
-}
-
-export function asFactory<V extends Value = Value>(
-  token: Instantiable<V>
-): Factory<V> {
-  // Custom factory defined by the @Injectable decorator
-  const factory = Reflect.getMetadata('injectable:factory', token)
-  if (factory) return factory
-
-  const params = getParams(token)
-  return (injector) => {
-    const args = params(injector)
-    return new token(...args)
   }
 }

@@ -1,16 +1,23 @@
-import { Controller, Get, IncomingMessage, Req } from '@crudify-js/di-router'
+import {
+  Controller,
+  Get,
+  IncomingMessage,
+  Method,
+  Req,
+} from '@crudify-js/di-router'
 import { Logger } from '../services/logger.js'
 import { Inject } from '@crudify-js/di'
 
-@Controller('/')
+@Controller('cats')
 export class Home {
-  @Get()
+  @Get('food')
   async home(
     @Req req: IncomingMessage,
-    logger: Logger,
-    @Inject('origin') origin: URL
+    @Method method: string,
+    @Inject('AliasedLoggerService') logger: Logger,
+    @Inject('origin') { href: origin }: URL
   ) {
-    const response = `Home (origin:${origin} url:${req.url})`
+    const response = `Home (method:${method} origin:${origin} url:${req.url})`
     logger.log(response)
     return response
   }

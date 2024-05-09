@@ -1,25 +1,11 @@
 import 'reflect-metadata'
-import {
-  Definition,
-  Instantiable,
-  Token,
-  Value,
-  define,
-  asFactory,
-} from './injector.js'
+import { Provider } from './providers.js'
 
-export function overrideToken<V extends Value = Value>(
-  token: Token<V>,
-  override: Instantiable<V>
-) {
-  return define(token, asFactory(override))
-}
-
-export function abstractToken<T>() {
+export function abstractToken<T = unknown>() {
   abstract class AbstractValue {
     abstract value: T
 
-    static define(value: T): Definition<AbstractValue> {
+    static provideValue(value: T): Provider<AbstractValue> {
       class Value extends this {
         static override get name() {
           return super.name // Improves debugging
@@ -28,7 +14,33 @@ export function abstractToken<T>() {
           return value
         }
       }
-      return overrideToken(this, Value)
+      return {
+        provide: this,
+        useClass: Value,
+      }
+    }
+  }
+  return AbstractValue
+}
+
+export function lazyToken<T = unknown>() {
+  abstract class AbstractValue {
+    abstract value: T
+
+    static provideLazy(value: () => T): Provider<AbstractValue> {
+      class Value extends this {
+        #state?: { value: T }
+        static override get name() {
+          return super.name // Improves debugging
+        }
+        get value() {
+          return (this.#state ??= { value: value() }).value
+        }
+      }
+      return {
+        provide: this,
+        useClass: Value,
+      }
     }
   }
   return AbstractValue

@@ -1,4 +1,4 @@
-import { Injector, define, overrideToken } from '@crudify-js/di'
+import { Injector } from '@crudify-js/di'
 import { Router } from '@crudify-js/di-router'
 import { startServer } from '@crudify-js/http'
 import { createServer } from 'node:http'
@@ -12,17 +12,32 @@ import { RequestLogger } from './services/request-logger.js'
 export async function main(signal: AbortSignal, cfg?: ConfigValue) {
   await using injector = new Injector([
     // Global services
-    cfg ? Config.define(cfg) : Config.fromEnv(),
+    cfg ? Config.provideValue(cfg) : Config.fromEnv(),
     Logger,
   ])
 
   await using routerInjector = injector.fork([
     // Router specific overrides of global services
-    overrideToken(Logger, RequestLogger),
-    define('origin', (injector) => injector.get(Config).http.origin),
+    {
+      provide: Logger,
+      useClass: RequestLogger,
+    },
+    {
+      provide: 'AliasedLoggerService',
+      useExisting: Logger,
+    },
+    {
+      provide: 'origin',
+      inject: [Config],
+      useFactory: (config: Config) => config.http.origin,
+    },
+    {
+      provide: 'trustProxy',
+      useValue: true,
+    },
 
     // Router specific services
-    ...Router.create([Home]),
+    ...Router.create({ routes: [Home] }),
   ])
 
   const router = Router.middleware(routerInjector)
