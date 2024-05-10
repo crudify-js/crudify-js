@@ -18,8 +18,7 @@ export class Injector {
     providers?: Iterable<Provider>,
     protected parent?: Injector
   ) {
-    this.#factories = new Map(compileProviders(providers))
-
+    this.#factories = compileProviders(providers)
     if (parent) {
       const unListen = parent.onDispose(throwParentDisposedBeforeChildren)
       this.onDispose(unListen)

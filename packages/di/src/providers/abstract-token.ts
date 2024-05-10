@@ -31,12 +31,14 @@ export function abstractToken<T = unknown>() {
           Object.defineProperty(this, 'value', {
             value: result,
             writable: false,
-            enumerable: false, // getters are not enumerable by default
+            enumerable: true,
             configurable: false,
           })
           return result
         }
       }
+
+      Object.defineProperty(Value.prototype, 'value', { enumerable: true })
 
       return {
         provide: this,

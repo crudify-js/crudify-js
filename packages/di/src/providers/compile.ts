@@ -14,19 +14,26 @@ export type ProviderOptions<V extends Value = Value> = {
   provide: Token<V>
 } & (UseFactory<V> | UseClass<V> | UseMethod<V> | UseExisting<V> | UseValue<V>)
 
-export function* compileProviders(
+export function compileProviders(
   iterable?: Iterable<Instantiable | ProviderOptions>
-): Generator<[Token, Factory]> {
+): Map<Token, Factory> {
+  const factories = new Map<Token, Factory>()
   if (iterable) {
     for (const item of iterable) {
-      yield compileProvider(item)
+      const { provide: token, factory } = compileProvider(item)
+      if (factories.has(token)) {
+        throw new TypeError(`Duplicate provider: ${stringify(token)}`)
+      }
+
+      factories.set(token, factory)
     }
   }
+  return factories
 }
 
 function compileProvider<V extends Value = Value>(
   provider: Instantiable<V> | ProviderOptions<V>
-): [token: Token<V>, factory: Factory<V>] {
+): { provide: Token<V>; factory: Factory<V> } {
   const options: ProviderOptions<V> =
     typeof provider === 'function'
       ? { provide: provider, useClass: provider }
@@ -36,23 +43,23 @@ function compileProvider<V extends Value = Value>(
 
   try {
     if ('useClass' in options) {
-      return [provide, compileUseClass(options)]
+      return { provide, factory: compileUseClass(options) }
     }
 
     if ('useExisting' in options) {
-      return [provide, compileUseExisting(options)]
+      return { provide, factory: compileUseExisting(options) }
     }
 
     if ('useFactory' in options) {
-      return [provide, compileUseFactory(options)]
+      return { provide, factory: compileUseFactory(options) }
     }
 
     if ('useMethod' in options) {
-      return [provide, compileUseMethod(options)]
+      return { provide, factory: compileUseMethod(options) }
     }
 
     if ('useValue' in options) {
-      return [provide, compileUseValue(options)]
+      return { provide, factory: compileUseValue(options) }
     }
 
     throw new TypeError('Invalid provider')
