@@ -29,23 +29,18 @@ export const URLSearchParamsProvider: Provider<URLSearchParams> = {
 }
 
 export type HttpUrlOptions = {
-  urlOrigin?: string
-
   trustProxy?: boolean
-  urlProtocol?: 'http' | 'https'
-  urlHost?: string
-  urlPort?: number
+  origin?: string | URL
 }
 export abstract class HttpUrl extends abstractToken<URL>() {
   static fromIncomingMessage(req: IncomingMessage, options?: HttpUrlOptions) {
-    if (options?.urlOrigin) {
-      return this.provideValue(new URL(req.url || '/', options.urlOrigin))
+    if (options?.origin) {
+      return this.provideValue(new URL(req.url || '/', options.origin))
     }
 
     const trustProxy = options?.trustProxy === true
 
     const host: string | undefined =
-      options?.urlHost ??
       ifString(trustProxy && req.headers['x-forwarded-host']) ??
       ifString(req.headers['host'])
 
@@ -54,7 +49,6 @@ export abstract class HttpUrl extends abstractToken<URL>() {
     }
 
     const protocol: 'http' | 'https' =
-      options?.urlProtocol ??
       ifHttpProto(trustProxy && req.headers['x-forwarded-proto']) ??
       ('encrypted' in req.socket && req.socket.encrypted === true
         ? 'https'
@@ -62,8 +56,7 @@ export abstract class HttpUrl extends abstractToken<URL>() {
 
     const port = host.includes(':')
       ? ''
-      : options?.urlPort ??
-        ifHttpPort(trustProxy && req.headers['x-forwarded-port']) ??
+      : ifHttpPort(trustProxy && req.headers['x-forwarded-port']) ??
         (protocol === 'http' ? '80' : '443')
 
     return this.provideValue(

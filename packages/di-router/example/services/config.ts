@@ -1,10 +1,9 @@
 import { abstractToken } from '@crudify-js/di'
+import { RouterMiddlewareOptions } from '@crudify-js/di-router'
 
 export type ConfigValue = {
-  http: {
-    trustProxy: boolean
+  http: RouterMiddlewareOptions & {
     port: string
-    origin: URL
   }
   log: {
     prefix: string
@@ -16,11 +15,11 @@ export abstract class Config extends abstractToken<ConfigValue>() {
     return this.provideValue({
       http: {
         trustProxy: env['TRUST_PROXY'] === 'true',
-        port: env['PORT'] ?? '3000',
         origin: new URL(env['ORIGIN'] ?? 'http://localhost:3000'),
+        port: env['PORT'] ?? '3000',
       },
       log: {
-        prefix: env['LOG_PREFIX'] ?? 'App',
+        prefix: env['LOG_PREFIX'] ?? 'MyApp',
       },
     })
   }

@@ -31,18 +31,14 @@ export async function main(signal: AbortSignal, cfg?: ConfigValue) {
       inject: [Config],
       useFactory: (config: Config) => config.http.origin,
     },
-    {
-      provide: 'trustProxy',
-      useValue: true,
-    },
 
     // Router specific services
     ...Router.create({ routes: [Home] }),
   ])
 
-  const router = Router.middleware(routerInjector)
-  const server = createServer(router)
   const config = injector.get(Config)
+  const router = Router.middleware(routerInjector, config.http)
+  const server = createServer(router)
 
   await startServer(signal, server, config.http.port)
 }

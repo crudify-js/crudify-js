@@ -2,14 +2,16 @@ import { compileProviders } from './providers/compile.js'
 import { Factory } from './providers/factory.js'
 import { Provider } from './providers/provider.js'
 import { Token, Value } from './token.js'
+import { allFulfilled } from './util/all-fulfilled.js'
+import { AsyncDisposableStack } from './util/disposable.js'
+import { once } from './util/once.js'
 import { stringify } from './util/stringify.js'
 
-export class Injector {
-  #disposed = false
+export class Injector implements AsyncDisposable {
   #disposeListeners: (() => void | Promise<void>)[] = []
-  #disposeStack: (() => void | Promise<void>)[] = []
+  #disposableStack = new AsyncDisposableStack()
 
-  #factories: ReadonlyMap<Token, Factory>
+  #factories: Map<Token, Factory>
 
   #instantiating = new Map<Token, { dependencies: Set<Token> }>()
   #instances = new Map<Token, { dependencies: Set<Token>; value: Value }>()
@@ -25,30 +27,22 @@ export class Injector {
     }
   }
 
-  onDispose(dispose: () => void | Promise<void>): () => void {
-    this.throwIfDisposed()
-    this.#disposeListeners.push(dispose)
-    let called = false
-    return () => {
-      if (called) return
-      called = true
-      const index = this.#disposeListeners.indexOf(dispose)
-      if (index !== -1) this.#disposeListeners.splice(index, 1)
-    }
+  get disposed() {
+    return this.#disposableStack.disposed
   }
 
   throwIfDisposed() {
-    if (this.#disposed) throw new Error('Injector is disposed')
+    if (this.disposed) throw new Error('Injector is disposed')
   }
 
-  throwIfInstantiating(token?: Token) {
-    if (token) {
-      if (this.#instantiating.has(token)) {
-        throw new Error(`Circular dependency detected for ${stringify(token)}`)
-      }
-    } else if (this.#instantiating.size) {
-      throw new Error('Injector is instantiating')
-    }
+  onDispose(listener: () => void | Promise<void>): () => void {
+    this.throwIfDisposed()
+    this.#disposeListeners.push(listener)
+
+    return once(() => {
+      const index = this.#disposeListeners.indexOf(listener)
+      if (index !== -1) this.#disposeListeners.splice(index, 1)
+    })
   }
 
   fork(providers?: Iterable<Provider>) {
@@ -57,7 +51,10 @@ export class Injector {
 
   find<V extends Value>(token: Token<V>): V | undefined {
     this.throwIfDisposed()
-    this.throwIfInstantiating(token)
+
+    if (this.#instantiating.has(token)) {
+      throw new Error(`Circular dependency detected for ${stringify(token)}`)
+    }
 
     let injector: Injector | undefined = this
     do {
@@ -84,12 +81,12 @@ export class Injector {
         ancestor = ancestor.parent!
       }
 
-      // 2) Mark the "token" as dependency of all the values currently being
-      //    instantiated.
+      // 2) Add all the dependencies of the value to the list of dependencies of
+      //    all the values currently being instantiated.
 
       for (const inst of this.#instantiating.values()) {
-        for (const DepToken of dependencies) {
-          inst.dependencies.add(DepToken)
+        for (const token of dependencies) {
+          inst.dependencies.add(token)
         }
       }
 
@@ -117,10 +114,6 @@ export class Injector {
     token: Token<V>,
     options?: { optional?: boolean }
   ): V | undefined {
-    // These checks are already done in this.find()
-    // this.throwIfDisposed()
-    // this.throwIfInstantiating(token)
-
     const current = this.find(token)
     if (current) return current
 
@@ -150,7 +143,7 @@ export class Injector {
 
       // Store the value the oldest ancestor, up to the "factoryInjector" that
       // defines the factory, that has no child injector with a factory for the
-      // value or any of its dependencies.
+      // token or any of its dependencies.
 
       let ancestor: Injector = this
       while (ancestor !== factoryInjector) {
@@ -164,14 +157,7 @@ export class Injector {
         value,
       })
 
-      if (typeof value === 'object' && value !== null) {
-        const dispose =
-          (Symbol.dispose in value && value[Symbol.dispose]) ||
-          (Symbol.asyncDispose in value && value[Symbol.asyncDispose])
-        if (typeof dispose === 'function') {
-          this.#disposeStack.push(dispose.bind(value))
-        }
-      }
+      this.#disposableStack.use(value)
 
       return value
     } finally {
@@ -180,40 +166,41 @@ export class Injector {
   }
 
   async [Symbol.asyncDispose]() {
-    // we *could* silently ignore this, but it's better to ensure that the user
-    // always ensures that the dispose function is called once, and only once.
-    this.throwIfDisposed()
-    this.throwIfInstantiating()
+    if (this.disposed) return
 
-    const results = await Promise.allSettled(
-      this.#disposeListeners
-        .splice(0, Infinity)
-        .map(async (dispose) => dispose())
-    )
-
-    this.#disposed = true
-    this.#instances.clear()
-
-    const listenerErrors = results
-      .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
-      .map((r) => r.reason)
-
-    // Dispose every disposable in reverse order
-    const disposeErrors: unknown[] = []
-    for (const dispose of this.#disposeStack.splice(0, Infinity).reverse()) {
-      try {
-        await dispose()
-      } catch (error) {
-        disposeErrors.push(error)
-      }
+    if (this.#instantiating.size) {
+      throw new Error('Injector cannot be disposed while instantiating values')
     }
 
-    const errors = [...listenerErrors, ...disposeErrors]
+    const errors = []
+    try {
+      await allFulfilled(
+        this.#disposeListeners.splice(0, Infinity).map(execAsync),
+        'An error occurred during onDispose listeners execution'
+      )
+    } catch (error) {
+      errors.push(error)
+    }
+
+    try {
+      await this.#disposableStack[Symbol.asyncDispose]()
+    } catch (error) {
+      errors.push(error)
+    } finally {
+      // Allow these to be GC'd, even if this class is still referenced
+      this.#factories.clear()
+      this.#instances.clear()
+    }
+
     if (errors.length) {
       const message = 'An error occurred while disposing the injector.'
       throw new AggregateError(errors, message)
     }
   }
+}
+
+async function execAsync(fn: () => void | Promise<void>) {
+  await fn()
 }
 
 function throwParentDisposedBeforeChildren() {

@@ -22,10 +22,12 @@ export type RouterConfig = {
   routes: Iterable<Instantiable>
 }
 
+export type RouterMiddlewareOptions = HttpUrlOptions
+
 export abstract class Router extends abstractToken<
   Map<string, Map<string, symbol>>
 >() {
-  static middleware(injector: Injector, options?: HttpUrlOptions) {
+  static middleware(injector: Injector, options?: RouterMiddlewareOptions) {
     return asHandler(
       async (req: IncomingMessage, res: ServerResponse, next: NextFunction) => {
         console.time('Router.middleware')
