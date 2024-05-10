@@ -1,44 +1,27 @@
 import { Injector } from '@crudify-js/di'
-import { Router } from '@crudify-js/di-router'
-import { startServer } from '@crudify-js/http'
-import { createServer } from 'node:http'
-import 'reflect-metadata'
 
-import { Home } from './routes/home.js'
-import { Config, ConfigValue } from './services/config.js'
-import { Logger } from './services/logger.js'
-import { RequestLogger } from './services/request-logger.js'
+import { server } from './server.js'
+import { ConfigValue } from './services/config.js'
+import { Config } from './services/config.provider.js'
+import { LoggerProvider } from './services/logger.provider.js'
+import { subTasks } from './util/sub-tasks.js'
+import { worker } from './worker.js'
 
 export async function main(signal: AbortSignal, cfg?: ConfigValue) {
-  await using injector = new Injector([
-    // Global services
+  // Global services
+  await using rootInjector = new Injector([
     cfg ? Config.provideValue(cfg) : Config.fromEnv(),
-    Logger,
-  ])
-
-  await using routerInjector = injector.fork([
-    // Router specific overrides of global services
+    LoggerProvider,
     {
-      provide: Logger,
-      useClass: RequestLogger,
-    },
-    {
-      provide: 'AliasedLoggerService',
-      useExisting: Logger,
-    },
-    {
+      // Short hand
       provide: 'origin',
       inject: [Config],
       useFactory: (config: Config) => config.http.origin,
     },
-
-    // Router specific services
-    ...Router.create({ routes: [Home] }),
   ])
 
-  const config = injector.get(Config)
-  const router = Router.middleware(routerInjector, config.http)
-  const server = createServer(router)
-
-  await startServer(signal, server, config.http.port)
+  await subTasks(signal, [
+    (signal) => server(signal, rootInjector),
+    (signal) => worker(signal, rootInjector),
+  ])
 }

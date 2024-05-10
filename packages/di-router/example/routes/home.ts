@@ -4,6 +4,7 @@ import {
   Get,
   IncomingMessage,
   Method,
+  Post,
   Query,
   Req,
 } from '@crudify-js/di-router'
@@ -11,6 +12,7 @@ import { Logger } from '../services/logger.js'
 
 @Controller('cats')
 export class Home {
+  @Post()
   @Get('food')
   async home(
     @Req req: IncomingMessage,

@@ -12,10 +12,30 @@ export async function run<T>(
   const abort = (reason: unknown) => {
     stopController.abort(reason)
 
-    onabort(reason)
-
     process.removeListener('SIGINT', abort)
     process.removeListener('SIGTERM', abort)
+
+    // Because we currently are "inside" the processing of a signal, we need to
+    // defer the actual handling of the signal to the next tick to avoid any
+    // signal listener added by "onabort" to be triggered by the current signal.
+
+    // We still need to make sure that there are listeners for SIGINT and
+    // SIGTERM to avoid the process from exiting immediately after the signal is
+    // handled.
+
+    // The 100ms delay is totally arbitrary. During my tests, a value of at
+    // least 6ms was required.
+    const noop = () => {}
+
+    process.addListener('SIGINT', noop)
+    process.addListener('SIGTERM', noop)
+
+    setTimeout(() => {
+      onabort(reason)
+
+      process.removeListener('SIGINT', noop)
+      process.removeListener('SIGTERM', noop)
+    }, 100).unref()
   }
   process.addListener('SIGINT', abort)
   process.addListener('SIGTERM', abort)

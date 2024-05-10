@@ -65,10 +65,6 @@ export abstract class Router extends abstractToken<
     const handlers: [verb: string, path: string, token: symbol][] = []
 
     for (const Controller of config.routes) {
-      if (Reflect.getMetadata('di:injectable', Controller) !== true) {
-        throw new TypeError(`Class ${Controller.name} is not injectable.`)
-      }
-
       const routerController = Reflect.getMetadata(
         'router:controller',
         Controller
@@ -158,6 +154,7 @@ export abstract class Router extends abstractToken<
 
     const handler = handlerInjector.get(token)
     if (!isHandler(handler)) {
+      // Should never happen
       throw new TypeError(`Invalid handler for ${method} ${pathname}`)
     }
 
