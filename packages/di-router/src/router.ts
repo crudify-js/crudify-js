@@ -1,10 +1,4 @@
-import {
-  Injectable,
-  Injector,
-  Instantiable,
-  Provider,
-  abstractToken,
-} from '@crudify-js/di'
+import { Injector, Instantiable, Provider, abstractToken } from '@crudify-js/di'
 import {
   IncomingMessage,
   NextFunction,
@@ -28,13 +22,15 @@ export type RouterConfig = {
   routes: Iterable<Instantiable>
 }
 
-@Injectable()
 export abstract class Router extends abstractToken<
   Map<string, Map<string, symbol>>
 >() {
   static middleware(injector: Injector, options?: HttpUrlOptions) {
     return asHandler(
       async (req: IncomingMessage, res: ServerResponse, next: NextFunction) => {
+        console.time('Router.middleware')
+
+        console.time('Injector.fork')
         await using requestInjector = injector.fork([
           HttpRequest.provideValue(req),
           HttpResponse.provideValue(res),
@@ -47,20 +43,30 @@ export abstract class Router extends abstractToken<
           URLSearchParamsProvider,
         ])
 
+        console.timeEnd('Injector.fork')
+
+        console.time('Router.handle')
         try {
           await requestInjector.get(Router).handle(requestInjector)
         } catch (err) {
           console.error(err)
           next(err)
+        } finally {
+          console.timeEnd('Router.handle')
+          console.timeEnd('Router.middleware')
         }
       }
     )
   }
 
   static *create(config: RouterConfig): Generator<Provider> {
-    const verbsMap = new Map<string, Map<string, symbol>>()
+    const handlers: [verb: string, path: string, token: symbol][] = []
 
     for (const Controller of config.routes) {
+      if (Reflect.getMetadata('di:injectable', Controller) !== true) {
+        throw new TypeError(`Class ${Controller.name} is not injectable.`)
+      }
+
       const routerController = Reflect.getMetadata(
         'router:controller',
         Controller
@@ -104,23 +110,33 @@ export abstract class Router extends abstractToken<
             const pathSuffix = normalizePath(httpSubPath)
             const fullPath = `${pathPrefix}${pathSuffix}` || '/'
 
-            const pathMap = verbsMap.get(httpVerb) || new Map<string, symbol>()
-            verbsMap.set(httpVerb, pathMap)
-
-            const current = pathMap.get(fullPath)
-            if (current) {
-              throw new TypeError(
-                `Duplicate handler for ${httpVerb} ${fullPath} (${String(current)} & ${String(token)})`
-              )
-            }
-
-            pathMap.set(fullPath, token)
+            handlers.push([httpVerb, fullPath, token])
           }
         }
       }
     }
 
-    yield this.provideValue(verbsMap)
+    yield this.provideLazy(() => {
+      const verbsMap = new Map<string, Map<string, symbol>>()
+
+      for (const [httpVerb, fullPath, token] of handlers) {
+        const pathMap = verbsMap.get(httpVerb) || new Map<string, symbol>()
+        verbsMap.set(httpVerb, pathMap)
+
+        const current = pathMap.get(fullPath)
+        if (current) {
+          throw new TypeError(
+            `Duplicate handler for ${httpVerb} ${fullPath} (${String(
+              current
+            )} & ${String(token)})`
+          )
+        }
+
+        pathMap.set(fullPath, token)
+      }
+
+      return verbsMap
+    })
   }
 
   async handle(requestInjector: Injector) {
@@ -129,7 +145,7 @@ export abstract class Router extends abstractToken<
     const pathMap: Map<string, symbol> | undefined = this.value.get(method)
     if (!pathMap) return requestInjector.get(NextFn).value()
 
-    const { pathname } = requestInjector.get(URL)
+    const { pathname } = requestInjector.get(HttpUrl).value
     const token = pathMap.get(pathname)
     if (!token) return requestInjector.get(NextFn).value()
 

@@ -1,47 +1,24 @@
-import {
-  Factory,
-  Instantiable,
-  Provider,
-  compileProviders,
-} from './providers.js'
+import { compileProviders } from './providers/compile.js'
+import { Factory } from './providers/factory.js'
+import { Provider } from './providers/provider.js'
 import { Token, Value } from './token.js'
-import { stringify } from './util.js'
-
-export type { Token, Value }
-export type { Instantiable, Provider }
-
-function throwParentDisposedBeforeChildren() {
-  throw new Error(
-    'Parent injector was disposed. Make sure to dispose all child injector(s) before disposing the parent injector.'
-  )
-}
+import { stringify } from './util/stringify.js'
 
 export class Injector {
   #disposed = false
   #disposeListeners: (() => void | Promise<void>)[] = []
   #disposeStack: (() => void | Promise<void>)[] = []
 
-  #instantiating = new Map<
-    Token,
-    {
-      dependencies: Set<Token>
-    }
-  >()
+  #factories: ReadonlyMap<Token, Factory>
 
-  readonly factories: ReadonlyMap<Token, Factory>
-  protected instances = new Map<
-    Token,
-    {
-      dependencies: Set<Token>
-      value: Value
-    }
-  >()
+  #instantiating = new Map<Token, { dependencies: Set<Token> }>()
+  #instances = new Map<Token, { dependencies: Set<Token>; value: Value }>()
 
   constructor(
-    providers?: Iterable<Provider | Instantiable>,
+    providers?: Iterable<Provider>,
     protected parent?: Injector
   ) {
-    this.factories = new Map<Token, Factory>(compileProviders(providers))
+    this.#factories = new Map(compileProviders(providers))
 
     if (parent) {
       const unListen = parent.onDispose(throwParentDisposedBeforeChildren)
@@ -75,7 +52,7 @@ export class Injector {
     }
   }
 
-  fork(providers?: Iterable<Provider | Instantiable>) {
+  fork(providers?: Iterable<Provider>) {
     return new Injector(providers, this)
   }
 
@@ -85,7 +62,7 @@ export class Injector {
 
     let injector: Injector | undefined = this
     do {
-      let injectorInstance = injector.instances.get(token)
+      let injectorInstance = injector.#instances.get(token)
       if (!injectorInstance) continue
 
       // The "injector" (which can be "this" or an ancestor) contains a value
@@ -124,7 +101,7 @@ export class Injector {
   }
 
   definesToken(token: Token) {
-    return this.factories.has(token)
+    return this.#factories.has(token)
   }
 
   definesTokens(tokens: Iterable<Token>) {
@@ -153,7 +130,7 @@ export class Injector {
     let factoryInjector: Injector | undefined = this
     let factory: Factory<V> | undefined
     do {
-      factory = factoryInjector.factories.get(token) as Factory<V> | undefined
+      factory = factoryInjector.#factories.get(token) as Factory<V> | undefined
     } while (!factory && (factoryInjector = factoryInjector.parent))
 
     if (!factory || !factoryInjector) {
@@ -183,7 +160,7 @@ export class Injector {
         ancestor = ancestor.parent!
       }
 
-      ancestor.instances.set(token, {
+      ancestor.#instances.set(token, {
         dependencies,
         value,
       })
@@ -209,14 +186,14 @@ export class Injector {
     this.throwIfDisposed()
     this.throwIfInstantiating()
 
-    this.#disposed = true
-    this.instances.clear()
-
     const results = await Promise.allSettled(
       this.#disposeListeners
         .splice(0, Infinity)
         .map(async (dispose) => dispose())
     )
+
+    this.#disposed = true
+    this.#instances.clear()
 
     const listenerErrors = results
       .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
@@ -238,4 +215,10 @@ export class Injector {
       throw new AggregateError(errors, message)
     }
   }
+}
+
+function throwParentDisposedBeforeChildren() {
+  throw new Error(
+    'Parent injector was disposed. Make sure to dispose all child injector(s) before disposing the parent injector.'
+  )
 }

@@ -1,4 +1,4 @@
-import { Computed } from '@crudify-js/di'
+import { Computed, Injectable, Instantiable, Value } from '@crudify-js/di'
 import {
   HttpMethod,
   HttpParams,
@@ -84,8 +84,15 @@ export const Get = createMethodDecorator('GET')
 export const Post = createMethodDecorator('POST')
 export const Put = createMethodDecorator('PUT')
 
-export function Controller(path?: string) {
-  return (target: any) => {
-    Reflect.defineMetadata('router:controller', { path }, target)
+export function Controller<V extends Value = Value>(
+  options?: string | { path?: string }
+) {
+  const injectableTransformer = Injectable()
+
+  const opts = typeof options === 'string' ? { path: options } : options ?? {}
+
+  return (target: Instantiable<V>) => {
+    Reflect.defineMetadata('router:controller', opts, target)
+    return injectableTransformer(target)
   }
 }

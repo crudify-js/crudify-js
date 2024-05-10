@@ -44,27 +44,27 @@ export abstract class HttpUrl extends abstractToken<URL>() {
 
     const trustProxy = options?.trustProxy === true
 
-    const host =
+    const host: string | undefined =
       options?.urlHost ??
-      (trustProxy && req.headers['x-forwarded-host']
-        ? req.headers['x-forwarded-host']
-        : req.headers['host'])
+      ifString(trustProxy && req.headers['x-forwarded-host']) ??
+      ifString(req.headers['host'])
 
     if (!host) {
       throw new Error(`Host header is required to construct URL`)
     }
 
-    const protocol =
+    const protocol: 'http' | 'https' =
       options?.urlProtocol ??
       ifHttpProto(trustProxy && req.headers['x-forwarded-proto']) ??
       ('encrypted' in req.socket && req.socket.encrypted === true
         ? 'https'
         : 'http')
 
-    const port =
-      options?.urlPort ??
-      ifHttpPort(trustProxy && req.headers['x-forwarded-port']) ??
-      (protocol === 'http' ? '80' : '443')
+    const port = host.includes(':')
+      ? ''
+      : options?.urlPort ??
+        ifHttpPort(trustProxy && req.headers['x-forwarded-port']) ??
+        (protocol === 'http' ? '80' : '443')
 
     return this.provideValue(
       new URL(`${protocol}://${host}${port ? `:${port}` : ''}${req.url}`)
@@ -76,6 +76,11 @@ export const URLProvider: Provider<URL> = {
   provide: URL,
   inject: [HttpUrl],
   useFactory: (i: HttpUrl) => i.value,
+}
+
+function ifString(v: unknown): undefined | string {
+  if (typeof v === 'string') return v
+  return undefined
 }
 
 function ifHttpPort(v: unknown): undefined | number {

@@ -1,42 +1,43 @@
-import 'reflect-metadata'
-import { Provider } from './providers.js'
+import { Injectable } from '../decorators/injectable.js'
+import { Provider } from './provider.js'
 
 export function abstractToken<T = unknown>() {
   abstract class AbstractValue {
     abstract value: T
 
     static provideValue(value: T): Provider<AbstractValue> {
+      @Injectable()
       class Value extends this {
+        value = value
         static override get name() {
           return super.name // Improves debugging
         }
-        get value() {
-          return value
-        }
       }
+
       return {
         provide: this,
         useClass: Value,
       }
     }
-  }
-  return AbstractValue
-}
-
-export function lazyToken<T = unknown>() {
-  abstract class AbstractValue {
-    abstract value: T
 
     static provideLazy(value: () => T): Provider<AbstractValue> {
+      @Injectable()
       class Value extends this {
-        #state?: { value: T }
         static override get name() {
           return super.name // Improves debugging
         }
         get value() {
-          return (this.#state ??= { value: value() }).value
+          const result = value()
+          Object.defineProperty(this, 'value', {
+            value: result,
+            writable: false,
+            enumerable: false, // getters are not enumerable by default
+            configurable: false,
+          })
+          return result
         }
       }
+
       return {
         provide: this,
         useClass: Value,
