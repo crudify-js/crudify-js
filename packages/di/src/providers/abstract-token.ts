@@ -2,10 +2,10 @@ import { Injectable } from '../decorators/injectable.js'
 import { Provider } from './provider.js'
 
 export function abstractToken<T = unknown>() {
-  abstract class AbstractValue {
+  abstract class ValueProvider {
     abstract value: T
 
-    static provideValue(value: T): Provider<AbstractValue> {
+    static provideValue(value: T): Provider<ValueProvider> {
       @Injectable()
       class Value extends this {
         value = value
@@ -20,7 +20,7 @@ export function abstractToken<T = unknown>() {
       }
     }
 
-    static provideLazy(value: () => T): Provider<AbstractValue> {
+    static provideLazy(value: () => T): Provider<ValueProvider> {
       @Injectable()
       class Value extends this {
         static override get name() {
@@ -46,5 +46,5 @@ export function abstractToken<T = unknown>() {
       }
     }
   }
-  return AbstractValue
+  return ValueProvider
 }

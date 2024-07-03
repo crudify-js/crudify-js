@@ -1,9 +1,8 @@
 import { Injector } from '@crudify-js/di'
 
+import { Config, ConfigValue } from './providers/config.js'
+import { LoggerProvider } from './providers/logger.js'
 import { server } from './server.js'
-import { ConfigValue } from './services/config.js'
-import { Config } from './services/config.provider.js'
-import { LoggerProvider } from './services/logger.provider.js'
 import { subTasks } from './util/sub-tasks.js'
 import { worker } from './worker.js'
 

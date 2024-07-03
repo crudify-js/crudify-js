@@ -62,7 +62,9 @@ function compileProvider<V extends Value = Value>(
       return { provide, factory: compileUseValue(options) }
     }
 
-    throw new TypeError('Invalid provider')
+    throw new TypeError(
+      'Options must contain one of "useClass", "useExisting", "useFactory", "useMethod" or "useValue",'
+    )
   } catch (cause) {
     throw new TypeError(`Unable to compile provider: ${stringify(provide)}`, {
       cause,

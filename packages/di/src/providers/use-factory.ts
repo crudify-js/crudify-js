@@ -18,36 +18,9 @@ export function compileUseFactory<V extends Value = Value>(
   if (useFactory.length > tokens.length) {
     const name = stringify('provide' in options ? options.provide : useFactory)
     throw new TypeError(
-      `Missing inject token for argument ${useFactory.length} of useFactory ${name}`
+      `Missing inject token for argument ${tokens.length} of useFactory ${name}`
     )
   }
 
-  // Optimization
-  switch (tokens.length) {
-    case 0:
-      return () => useFactory()
-    case 1:
-      return (injector) => useFactory(injector.get(tokens[0]!))
-
-    case 2:
-      return (injector) =>
-        useFactory(injector.get(tokens[0]!), injector.get(tokens[1]!))
-    case 3:
-      return (injector) =>
-        useFactory(
-          injector.get(tokens[0]!),
-          injector.get(tokens[1]!),
-          injector.get(tokens[2]!)
-        )
-    case 4:
-      return (injector) =>
-        useFactory(
-          injector.get(tokens[0]!),
-          injector.get(tokens[1]!),
-          injector.get(tokens[2]!),
-          injector.get(tokens[3]!)
-        )
-    default:
-      return (injector) => useFactory(...tokens.map(injector.get, injector))
-  }
+  return (injector) => useFactory(...tokens.map(injector.get, injector))
 }

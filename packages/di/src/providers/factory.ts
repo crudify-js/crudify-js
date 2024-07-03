@@ -15,18 +15,19 @@ export function buildFactories(
   target: Object,
   key?: string | symbol
 ): undefined | Factory[] {
-  const types = getArgumentTypesMetadata(target, key)
-  const diFactories = getArgumentFactoriesMetadata<Factory>(target, key)
-
-  const factories: Factory[] = []
   const item = getDecoratedFunction(target, key)
   if (!item) return undefined
+
+  const types = getArgumentTypesMetadata(target, key)
+  const diFactories = getArgumentFactoriesMetadata<Factory>(target, key)
 
   const length = Math.max(
     item.length,
     types?.length ?? 0,
     diFactories?.length ?? 0
   )
+
+  const factories: Factory[] = Array(length)
 
   for (let i = 0; i < length; i++) {
     const factory = diFactories?.[i]

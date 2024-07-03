@@ -1,0 +1,18 @@
+{
+    "recommendations": [
+        "bierner.lit-html",
+        "bradlc.vscode-tailwindcss",
+        "dbaeumer.vscode-eslint",
+        "EditorConfig.EditorConfig",
+        "esbenp.prettier-vscode",
+        "mike-co.import-sorter",
+        "mikestead.dotenv",
+        "mitchdenny.ecdc",
+        "ms-vscode.vscode-typescript-next",
+        "PKief.material-icon-theme",
+        "stkb.rewrap",
+        "Tyriar.sort-lines",
+        "wengerk.highlight-bad-chars",
+        "wmaurer.change-case",
+    ]
+}

@@ -4,10 +4,10 @@ import { Injector } from '@crudify-js/di'
 import { Router } from '@crudify-js/di-router'
 import { startServer } from '@crudify-js/http'
 
+import { Config } from './providers/config.js'
+import { Logger } from './providers/logger.js'
+import { RequestLogger } from './providers/request-logger.js'
 import { Home } from './routes/home.js'
-import { Config } from './services/config.provider.js'
-import { Logger } from './services/logger.js'
-import { RequestLogger } from './services/request-logger.provider.js'
 
 export async function server(signal: AbortSignal, rootInjector: Injector) {
   // Router specific overrides of global services

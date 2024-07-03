@@ -1,4 +1,4 @@
-import { Computed, Injectable, Instantiable, Value } from '@crudify-js/di'
+import { Derived, Injectable, Instantiable, Value } from '@crudify-js/di'
 import {
   HttpMethod,
   HttpParams,
@@ -9,36 +9,40 @@ import {
   NextFn,
 } from './tokens.js'
 
-export const Req = Computed({
+export const Req = Derived({
   inject: [HttpRequest],
   useFactory: (i: HttpRequest) => i.value,
 })
-export const Res = Computed({
+export const Res = Derived({
   inject: [HttpResponse],
   useFactory: (i: HttpResponse) => i.value,
 })
-export const Next = Computed({
+export const Next = Derived({
   inject: [NextFn],
-  useFactory: (i: NextFn) => i.value,
+  useFactory:
+    ({ value }: NextFn) =>
+    // We do not simply return value to ensure that `this` is not propagated
+    (...args) =>
+      value(...args),
 })
-export const Method = Computed({
+export const Method = Derived({
   inject: [HttpMethod],
   useFactory: (i: HttpMethod) => i.value,
 })
-export const Query = Computed({
+export const Query = Derived({
   inject: [HttpQuery],
   useFactory: (i: HttpQuery) => i.value,
 })
-export const Url = Computed({
+export const Url = Derived({
   inject: [HttpUrl],
   useFactory: (i: HttpUrl) => i.value,
 })
-export const Params = Computed({
+export const Params = Derived({
   inject: [HttpParams],
   useFactory: (i: HttpParams) => i.value,
 })
 export const Param = (name: string) =>
-  Computed({
+  Derived({
     inject: [HttpParams],
     useFactory: ({ value }: HttpParams) => {
       if (!Object.hasOwn(value, name)) {
@@ -47,6 +51,19 @@ export const Param = (name: string) =>
       return value[name]
     },
   })
+
+export function Controller<V extends Value = Value>(
+  options?: string | { path?: string }
+) {
+  const injectableTransformer = Injectable()
+
+  const opts = typeof options === 'string' ? { path: options } : options ?? {}
+
+  return (target: Instantiable<V>) => {
+    Reflect.defineMetadata('router:controller', opts, target)
+    return injectableTransformer(target)
+  }
+}
 
 function addMethodHandler(
   prototype: any,
@@ -81,18 +98,7 @@ function createMethodDecorator(...httpVerbs: string[]) {
 
 export const Delete = createMethodDecorator('DELETE')
 export const Get = createMethodDecorator('GET')
+export const Head = createMethodDecorator('HEAD')
+export const Options = createMethodDecorator('OPTIONS')
 export const Post = createMethodDecorator('POST')
 export const Put = createMethodDecorator('PUT')
-
-export function Controller<V extends Value = Value>(
-  options?: string | { path?: string }
-) {
-  const injectableTransformer = Injectable()
-
-  const opts = typeof options === 'string' ? { path: options } : options ?? {}
-
-  return (target: Instantiable<V>) => {
-    Reflect.defineMetadata('router:controller', opts, target)
-    return injectableTransformer(target)
-  }
-}

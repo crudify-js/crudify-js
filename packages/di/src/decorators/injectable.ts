@@ -7,8 +7,12 @@ export function Injectable<V extends Value = Value>() {
   }
 }
 
+export function isInjectable(target: Function) {
+  return Reflect.getMetadata('di:injectable', target) === true
+}
+
 export function assertInjectable(target: Function) {
-  if (Reflect.getMetadata('di:injectable', target) !== true) {
+  if (!isInjectable(target)) {
     throw new TypeError(`Class ${stringify(target)} is not injectable.`)
   }
 }

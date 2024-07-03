@@ -1,7 +1,7 @@
 import { Injector } from '@crudify-js/di'
 
-import { Config } from './services/config.provider.js'
-import { Logger } from './services/logger.js'
+import { Config } from './providers/config.js'
+import { Logger } from './providers/logger.js'
 import { sleep } from './util/sleep.js'
 
 export async function worker(signal: AbortSignal, rootInjector: Injector) {

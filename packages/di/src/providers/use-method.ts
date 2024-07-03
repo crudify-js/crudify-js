@@ -32,8 +32,11 @@ export function compileUseMethod<V extends Value = Value>({
         `Method ${String(methodName)} not found in ${stringify(useMethod)}`
       )
     }
-    const args = factories.map(invokeWithThisAsFirstArg, injector)
-    return method.bind(object, ...args)
+    const injectedArgs = factories.map(invokeWithThisAsFirstArg, injector)
+    // @TODO (?) we could provide a special injection token allowing the method to capture
+    // the the extra arguments that are passed to the function when called. We could also
+    // simply append those extra agruments to the list of injected arguments.
+    return (..._extraAgrs: unknown[]) => method.call(object, ...injectedArgs)
   }
 }
 

@@ -1,5 +1,7 @@
-import { Config } from './config.provider.js'
-import { Logger } from '../services/logger.js'
+import { Config } from './config.js'
+import { Logger } from '../lib/logger.js'
+
+export { Logger }
 
 export const LoggerProvider = {
   provide: Logger,

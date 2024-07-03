@@ -137,10 +137,12 @@ export abstract class Router extends abstractToken<
     })
   }
 
-  async handle(requestInjector: Injector) {
+  async handle(requestInjector: Injector): Promise<void> {
     const { method = 'GET' } = requestInjector.get(HttpRequest).value
 
-    const pathMap: Map<string, symbol> | undefined = this.value.get(method)
+    const verbsMap = this.value
+
+    const pathMap: Map<string, symbol> | undefined = verbsMap.get(method)
     if (!pathMap) return requestInjector.get(NextFn).value()
 
     const { pathname } = requestInjector.get(HttpUrl).value

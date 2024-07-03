@@ -1,4 +1,4 @@
-export { Computed } from './decorators/computed.js'
+export { Derived } from './decorators/derived.js'
 export { Inject } from './decorators/inject.js'
 export { Injectable, assertInjectable } from './decorators/injectable.js'
 export { Injector } from './injector.js'

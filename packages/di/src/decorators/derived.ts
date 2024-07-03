@@ -4,7 +4,7 @@ import { setArgumentFactoryMetadata } from '../util/set-argument-factory-metadat
 
 export type { UseFactory }
 
-export function Computed<V extends Value = Value>(options: UseFactory<V>) {
+export function Derived<V extends Value = Value>(options: UseFactory<V>) {
   const factory = compileUseFactory(options)
   return (
     prototype: Object,
