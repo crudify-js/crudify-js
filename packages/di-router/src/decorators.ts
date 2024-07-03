@@ -1,4 +1,5 @@
 import { Derived, Injectable, Instantiable, Value } from '@crudify-js/di'
+import { NextFunction } from '@crudify-js/http'
 import {
   HttpMethod,
   HttpParams,
@@ -20,7 +21,7 @@ export const Res = Derived({
 export const Next = Derived({
   inject: [NextFn],
   useFactory:
-    ({ value }: NextFn) =>
+    ({ value }: NextFn): NextFunction =>
     // We do not simply return value to ensure that `this` is not propagated
     (...args) =>
       value(...args),
@@ -53,7 +54,7 @@ export const Param = (name: string) =>
   })
 
 export function Controller<V extends Value = Value>(
-  options?: string | { path?: string }
+  options?: string | { path?: string },
 ) {
   const injectableTransformer = Injectable()
 
@@ -69,14 +70,14 @@ function addMethodHandler(
   prototype: any,
   propertyKey: string,
   httpVerbs: string[],
-  httpPath = ''
+  httpPath = '',
 ) {
   const routerMethods = Reflect.getMetadata('router:methods', prototype) || {}
 
   routerMethods[propertyKey] ??= {}
 
   routerMethods[propertyKey][httpPath] = Array.isArray(
-    routerMethods[propertyKey][httpPath]
+    routerMethods[propertyKey][httpPath],
   )
     ? [...routerMethods[propertyKey][httpPath], ...httpVerbs]
     : httpVerbs
@@ -89,7 +90,7 @@ function createMethodDecorator(...httpVerbs: string[]) {
     return (
       prototype: Object,
       propertyKey: string,
-      descriptor: PropertyDescriptor
+      descriptor: PropertyDescriptor,
     ) => {
       addMethodHandler(prototype, propertyKey, httpVerbs, httpPath)
     }

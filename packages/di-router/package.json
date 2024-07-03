@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@crudify-js/di": "workspace:*",
-    "reflect-metadata":"^0.2.2",
+    "reflect-metadata": "^0.2.2",
     "tslib": "^2.6.0"
   },
   "devDependencies": {
@@ -21,6 +21,7 @@
     "typescript": "next"
   },
   "scripts": {
+    "dev": "node --watch dist-example/bin.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc"
   }

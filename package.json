@@ -2,10 +2,13 @@
   "private": true,
   "devDependencies": {
     "@types/node": "^20.8.4",
-    "prettier":"^3.2.5",
+    "prettier": "^3.2.5",
     "typescript": "next"
   },
   "scripts": {
-    "dev": "tsc --build tsconfig.dev.json --watch"
+    "dev": "NODE_ENV=development pnpm --stream '/^dev:.+$/'",
+    "dev:tsc": "tsc --build tsconfig.dev.json --watch",
+    "dev:pkg": "pnpm --recursive --parallel --stream dev",
+    "build": "pnpm --recursive --stream build"
   }
 }

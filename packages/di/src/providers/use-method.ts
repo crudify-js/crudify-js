@@ -12,7 +12,7 @@ export type UseMethod<V extends Value = Value> = {
 export function compileUseMethod<V extends Value = Value>({
   useMethod,
   methodName,
-}: UseMethod<V>): Factory<V> {
+}: UseMethod<V>): Factory<V & Function> {
   assertInjectable(useMethod)
 
   const factories = buildFactories(useMethod.prototype, methodName)
@@ -29,14 +29,18 @@ export function compileUseMethod<V extends Value = Value>({
         : undefined
     if (typeof method !== 'function') {
       throw new TypeError(
-        `Method ${String(methodName)} not found in ${stringify(useMethod)}`
+        `Method ${String(methodName)} not found in ${stringify(useMethod)}`,
       )
     }
     const injectedArgs = factories.map(invokeWithThisAsFirstArg, injector)
+
     // @TODO (?) we could provide a special injection token allowing the method to capture
     // the the extra arguments that are passed to the function when called. We could also
     // simply append those extra agruments to the list of injected arguments.
-    return (..._extraAgrs: unknown[]) => method.call(object, ...injectedArgs)
+    const value = (..._extraAgrs: unknown[]): unknown =>
+      method.call(object, ...injectedArgs)
+
+    return value as V & Function
   }
 }
 

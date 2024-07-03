@@ -1,6 +1,6 @@
 import { Injectable } from '@crudify-js/di'
 import { IncomingMessage, Req } from '@crudify-js/di-router'
-import { Config } from './config.provider.js'
+import { Config } from './config.js'
 import { Logger } from './logger.js'
 
 @Injectable()
