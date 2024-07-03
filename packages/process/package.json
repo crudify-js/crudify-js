@@ -17,6 +17,6 @@
     "typescript": "next"
   },
   "scripts": {
-    "build": "tsc"
+    "build": "tsc --build"
   }
 }

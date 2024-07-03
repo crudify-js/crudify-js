@@ -9,25 +9,26 @@ import { Logger } from './providers/logger.js'
 import { RequestLogger } from './providers/request-logger.js'
 import { Home } from './routes/home.js'
 
-export async function server(signal: AbortSignal, rootInjector: Injector) {
-  // Router specific overrides of global services
-  await using injector = rootInjector.fork([
-    {
-      provide: Logger,
-      useClass: RequestLogger,
-    },
-    {
-      provide: 'AliasedLoggerService',
-      useExisting: Logger,
-    },
-
-    // Router specific services
-    ...Router.create({ routes: [Home] }),
-  ])
-
+export async function server(signal: AbortSignal, injector: Injector) {
   const config = injector.get(Config)
-  const router = Router.middleware(injector, config.http)
-  const server = createServer(router)
+
+  await using router = new Router({
+    controllers: [Home],
+    options: config.http,
+    injector,
+    providers: [
+      {
+        provide: Logger,
+        useClass: RequestLogger,
+      },
+      {
+        provide: 'AliasedLoggerService',
+        useExisting: Logger,
+      },
+    ],
+  })
+
+  const server = createServer(router.middleware)
 
   await startServer(signal, server, config.http.port)
 }

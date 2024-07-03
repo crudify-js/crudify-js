@@ -1,10 +1,11 @@
-import { Injector, Instantiable, Provider, abstractToken } from '@crudify-js/di'
+import { Injector, Instantiable, Provider } from '@crudify-js/di'
 import {
   IncomingMessage,
   NextFunction,
   ServerResponse,
   asHandler,
 } from '@crudify-js/http'
+import { Routes } from './routes.js'
 import {
   HttpMethod,
   HttpParams,
@@ -13,163 +14,83 @@ import {
   HttpResponse,
   HttpUrl,
   HttpUrlOptions,
+  IncomingMessageProvider,
   NextFn,
+  ServerResponseProvider,
   URLProvider,
   URLSearchParamsProvider,
 } from './tokens.js'
-
-export type RouterConfig = {
-  routes: Iterable<Instantiable>
-}
+import { combineIterables } from './util.js'
 
 export type RouterMiddlewareOptions = HttpUrlOptions
 
-export abstract class Router extends abstractToken<
-  Map<string, Map<string, symbol>>
->() {
-  static middleware(injector: Injector, options?: RouterMiddlewareOptions) {
-    return asHandler(
-      async (req: IncomingMessage, res: ServerResponse, next: NextFunction) => {
-        console.time('Router.middleware')
+export class Router implements AsyncDisposable {
+  protected options?: RouterMiddlewareOptions
 
-        console.time('Injector.fork')
-        await using requestInjector = injector.fork([
+  protected injector: Injector
+  protected routes: Routes
+
+  public middleware = asHandler(
+    async (req: IncomingMessage, res: ServerResponse, next: NextFunction) => {
+      console.time('Router.middleware')
+      try {
+        const { method, url = '/' } = req
+        if (!method) return next()
+
+        const route = this.routes.find(method, url)
+        if (!route) return next()
+
+        // Create an injector for this particular request
+        await using requestInjector = this.injector.fork([
+          HttpMethod.provideValue(method),
+          HttpParams.provideValue(route.params),
+          HttpQuery.fromUrl(url),
           HttpRequest.provideValue(req),
           HttpResponse.provideValue(res),
+          HttpUrl.fromIncomingMessage(req, this.options),
           NextFn.provideValue(next),
-          HttpQuery.fromIncomingMessage(req),
-          HttpUrl.fromIncomingMessage(req, options),
 
           // Short hand getters
           URLProvider,
           URLSearchParamsProvider,
+          IncomingMessageProvider,
+          ServerResponseProvider,
         ])
 
-        console.timeEnd('Injector.fork')
+        const handler = requestInjector.get(route.token)
 
         console.time('Router.handle')
         try {
-          await requestInjector.get(Router).handle(requestInjector)
-        } catch (err) {
-          console.error(err)
-          next(err)
+          const result = await handler()
+          res.end(result)
         } finally {
           console.timeEnd('Router.handle')
-          console.timeEnd('Router.middleware')
         }
+      } catch (err) {
+        console.error(err)
+        next(err)
+      } finally {
+        console.timeEnd('Router.middleware')
       }
+    },
+  )
+
+  constructor(config: {
+    controllers: Iterable<Instantiable>
+    options?: RouterMiddlewareOptions
+    providers?: Iterable<Provider>
+    injector?: Injector
+  }) {
+    const providers = combineIterables(
+      config.providers,
+      Routes.fromControllers(config.controllers),
     )
+    this.options = config.options
+    this.injector = config.injector?.fork(providers) || new Injector(providers)
+    this.routes = this.injector.get(Routes)
   }
 
-  static *create(config: RouterConfig): Generator<Provider> {
-    const handlers: [verb: string, path: string, token: symbol][] = []
-
-    for (const Controller of config.routes) {
-      const routerController = Reflect.getMetadata(
-        'router:controller',
-        Controller
-      ) as undefined | { path?: string }
-
-      if (!routerController) {
-        throw new Error(`${Controller.name} is not a controller`)
-      }
-
-      const pathPrefix = normalizePath(routerController.path)
-
-      const routerMethods: Record<string, string> = Reflect.getMetadata(
-        'router:methods',
-        Controller.prototype
-      )
-      if (!routerMethods) {
-        console.debug(`${Controller.name} has no methods`)
-        continue
-      }
-
-      yield {
-        provide: Controller,
-        useClass: Controller,
-      }
-
-      for (const [propertyKey, propertyMethods] of Object.entries(
-        routerMethods
-      )) {
-        const token = Symbol(`${Controller.name}.${propertyKey}()`)
-
-        yield {
-          provide: token,
-          useMethod: Controller,
-          methodName: propertyKey,
-        }
-
-        for (const [httpSubPath, httpVerbs] of Object.entries(
-          propertyMethods
-        )) {
-          for (const httpVerb of httpVerbs) {
-            const pathSuffix = normalizePath(httpSubPath)
-            const fullPath = `${pathPrefix}${pathSuffix}` || '/'
-
-            handlers.push([httpVerb, fullPath, token])
-          }
-        }
-      }
-    }
-
-    yield this.provideLazy(() => {
-      const verbsMap = new Map<string, Map<string, symbol>>()
-
-      for (const [httpVerb, fullPath, token] of handlers) {
-        const pathMap = verbsMap.get(httpVerb) || new Map<string, symbol>()
-        verbsMap.set(httpVerb, pathMap)
-
-        const current = pathMap.get(fullPath)
-        if (current) {
-          throw new TypeError(
-            `Duplicate handler for ${httpVerb} ${fullPath} (${String(
-              current
-            )} & ${String(token)})`
-          )
-        }
-
-        pathMap.set(fullPath, token)
-      }
-
-      return verbsMap
-    })
+  async [Symbol.asyncDispose]() {
+    await this.injector[Symbol.asyncDispose]()
   }
-
-  async handle(requestInjector: Injector): Promise<void> {
-    const { method = 'GET' } = requestInjector.get(HttpRequest).value
-
-    const verbsMap = this.value
-
-    const pathMap: Map<string, symbol> | undefined = verbsMap.get(method)
-    if (!pathMap) return requestInjector.get(NextFn).value()
-
-    const { pathname } = requestInjector.get(HttpUrl).value
-    const token = pathMap.get(pathname)
-    if (!token) return requestInjector.get(NextFn).value()
-
-    await using handlerInjector = requestInjector.fork([
-      HttpMethod.provideValue(method),
-      HttpParams.provideValue({ id: 'TODO' }), // TODO: match & parse url params
-    ])
-
-    const handler = handlerInjector.get(token)
-    if (!isHandler(handler)) {
-      // Should never happen
-      throw new TypeError(`Invalid handler for ${method} ${pathname}`)
-    }
-
-    const result = await handler()
-    handlerInjector.get(HttpResponse).value.end(result)
-  }
-}
-
-function normalizePath(path?: string) {
-  const stripped = path?.replace(/\/+$/g, '/')
-  return stripped && !stripped.startsWith('/') ? `/${stripped}` : stripped || ''
-}
-
-function isHandler(value: unknown): value is () => unknown {
-  return typeof value === 'function' && value.length === 0
 }
