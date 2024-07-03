@@ -11,12 +11,6 @@ export async function main(signal: AbortSignal, cfg?: ConfigValue) {
   await using rootInjector = new Injector([
     cfg ? Config.provideValue(cfg) : Config.fromEnv(),
     LoggerProvider,
-    {
-      // Short hand
-      provide: 'origin',
-      inject: [Config],
-      useFactory: (config: Config) => config.http.origin,
-    },
   ])
 
   await subTasks(signal, [

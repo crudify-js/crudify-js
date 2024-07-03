@@ -1,12 +1,11 @@
 {
-  "extends": "../../tsconfig/node.json",
+  "extends": "../../tsconfig/isomorphic.json",
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "src",
 
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
+    "emitDecoratorMetadata": true
   },
-  "include": ["src"],
+  "include": ["src"]
 }
-

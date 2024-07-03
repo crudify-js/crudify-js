@@ -17,13 +17,10 @@ export async function server(signal: AbortSignal, injector: Injector) {
     options: config.http,
     injector,
     providers: [
+      // Override the default Logger with a RequestLogger
       {
         provide: Logger,
         useClass: RequestLogger,
-      },
-      {
-        provide: 'AliasedLoggerService',
-        useExisting: Logger,
       },
     ],
   })
