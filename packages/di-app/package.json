@@ -1,0 +1,29 @@
+{
+  "name": "@crudify-js/di-app",
+  "version": "0.0.1",
+  "author": "Matthieu Sieben",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@crudify-js/di": "workspace:*",
+    "@crudify-js/di-router": "workspace:*",
+    "@crudify-js/http": "workspace:*",
+    "reflect-metadata": "^0.2.2",
+    "tslib": "^2.6.0"
+  },
+  "devDependencies": {
+    "@crudify-js/process": "workspace:*",
+    "typescript": "next"
+  },
+  "scripts": {
+    "dev": "node --watch dist-example/bin.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc --build"
+  }
+}

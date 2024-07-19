@@ -12,8 +12,6 @@ export class Routes {
   static *fromControllers(
     controllers: Iterable<Instantiable>,
   ): Generator<Provider> {
-    console.time('Routes.fromControllers')
-
     const routesMap: RoutesMap = new Map()
 
     for (const Controller of controllers) {
@@ -81,8 +79,6 @@ export class Routes {
       provide: this,
       useFactory: () => new Routes(routesMap),
     }
-
-    console.timeEnd('Router.fromControllers')
   }
 
   constructor(protected readonly routesMap: RoutesMap) {}

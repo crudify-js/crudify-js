@@ -169,6 +169,17 @@ export class Injector implements AsyncDisposable, FactoryInjector {
     }
   }
 
+  *[Symbol.iterator](): Iterator<Token> {
+    yield* this.#factories.keys()
+    if (this.parent) {
+      for (const token of this.parent) {
+        if (!this.#factories.has(token)) {
+          yield token
+        }
+      }
+    }
+  }
+
   async [Symbol.asyncDispose]() {
     if (this.disposed) return
 

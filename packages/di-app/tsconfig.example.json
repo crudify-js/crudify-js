@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig/node.json",
+  "compilerOptions": {
+    "outDir": "dist-example",
+    "rootDir": "example",
+
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+  },
+  "include": ["example"],
+}
+

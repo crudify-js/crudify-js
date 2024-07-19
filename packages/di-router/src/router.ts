@@ -24,7 +24,6 @@ export class Router implements AsyncDisposable {
 
   public middleware = asHandler(
     async (req: IncomingMessage, res: ServerResponse, next: NextFunction) => {
-      console.time('Router.middleware')
       try {
         const { method, url = '/' } = req
         if (!method) return next()
@@ -53,8 +52,6 @@ export class Router implements AsyncDisposable {
       } catch (err) {
         console.error(err)
         next(err)
-      } finally {
-        console.timeEnd('Router.middleware')
       }
     },
   )

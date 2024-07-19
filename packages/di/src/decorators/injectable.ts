@@ -1,3 +1,5 @@
+import 'reflect-metadata'
+
 import { Value } from '../token.js'
 import { stringify } from '../util/stringify.js'
 
