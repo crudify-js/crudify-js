@@ -8,6 +8,7 @@ import {
   Instantiable,
   Provider,
   Token,
+  Value,
 } from '@crudify-js/di'
 import { run } from '@crudify-js/process'
 import { Router } from '@crudify-js/di-router'
@@ -33,27 +34,21 @@ export function Module(options: ModuleOptions = {}) {
 }
 
 export async function bootstrap(Module: Instantiable, port: number = 4001) {
-  await using app = buildContext(Module)
-  console.debug('app', app)
-
-  const instance = app.module
-  console.debug('instance', instance)
+  await using app = new AppContext(Module)
 
   await run(async (signal) => {
-    const server = createServer(app.handler)
-
-    await startServer(signal, server, port)
+    await app.listen(port, signal)
   })
 }
 
-class Context {
+class ModuleContext {
   readonly #injector: Injector
   readonly injector: Injector
-  readonly router: Router
+  readonly router?: Router
 
   constructor(
     readonly Module: Instantiable,
-    readonly parents: Context[],
+    readonly imports: ModuleContext[],
   ) {
     const options = getModuleOptions(Module)
 
@@ -61,50 +56,34 @@ class Context {
       combineIterables(
         [{ provide: Module, useClass: Module }],
         options.provides,
-        // Expose every providers from the dependencies
-        parents.flatMap(({ injector }) =>
-          Array.from(injector, (token) => {
-            const value = injector.get(token, { optional: true })
-            if (value === undefined) return undefined
-            return {
-              provide: token,
-              useValue: value,
-            }
-          }).filter((v) => v !== undefined),
-        ),
+        proxyProviders(imports),
       ),
     )
 
     this.injector = new Injector(
-      options.exports?.map((token) => ({
-        provide: token,
-        useFactory: () => this.#injector.get(token),
-      })),
+      options.exports?.map((token) => proxyToken(token, this.#injector)),
     )
 
-    this.router = new Router({
-      controllers: options.controllers ?? [],
-      injector: this.#injector,
-      // TODO: how to pass http oritgin option ?
-    })
-  }
-
-  get module() {
-    return this.#injector.get(this.Module)
+    this.router = options.controllers
+      ? new Router({
+          controllers: options.controllers,
+          injector: this.#injector,
+        })
+      : undefined
   }
 
   get handler(): Handler {
     return asHandler(
       combineMiddlewares([
-        this.router.handler,
-        combineMiddlewares(this.parents.map((p) => p.handler)),
+        this.router?.handler,
+        ...this.imports.map((p) => p.handler),
       ]),
     )
   }
 
   async [Symbol.asyncDispose]() {
     try {
-      await this.router[Symbol.asyncDispose]()
+      await this.router?.[Symbol.asyncDispose]()
       await this.injector[Symbol.asyncDispose]()
     } finally {
       await this.#injector[Symbol.asyncDispose]()
@@ -112,40 +91,75 @@ class Context {
   }
 }
 
-function buildContext(Module: Instantiable) {
-  const visited = new Map<Instantiable, Token<Context>>()
+class AppContext {
+  readonly #moduleContextInjector: Injector
+  readonly #moduleContext: ModuleContext
 
-  for (const mod of enumerateModules(Module)) {
-    if (!visited.has(mod)) {
-      visited.set(mod, Symbol(mod.name))
+  constructor(Module: Instantiable) {
+    const visited = new Map<Instantiable, Token<ModuleContext>>()
+
+    for (const mod of enumerateModules(Module)) {
+      if (!visited.has(mod)) {
+        visited.set(mod, Symbol(mod.name))
+      }
     }
+
+    this.#moduleContextInjector = new Injector(
+      Array.from(visited, ([Mod, token]) => ({
+        provide: token,
+        inject: getModuleOptions(Mod).imports?.map(
+          visited.get,
+          visited,
+        ) as Token[],
+        useFactory: (...imports: ModuleContext[]) =>
+          new ModuleContext(Mod, imports),
+      })),
+    )
+
+    this.#moduleContext = this.#moduleContextInjector.get(visited.get(Module)!)
   }
 
-  // TODO: destroy this injector
-  const injector = new Injector(
-    Array.from(visited, ([Mod, token]) => {
-      return {
-        provide: token,
-        inject: getModuleOptions(Mod).imports?.map((M) => visited.get(M)!),
-        useFactory: (...parents: Context[]) => {
-          return new Context(Mod, parents)
-        },
-      }
-    }),
-  )
+  async listen(port: number, signal?: AbortSignal) {
+    const server = createServer(this.#moduleContext.handler)
+    if (signal) await startServer(signal, server, port)
+    else await run(async (signal) => startServer(signal, server, port))
+  }
 
-  return injector.get(visited.get(Module)!)
+  async [Symbol.asyncDispose]() {
+    await this.#moduleContextInjector[Symbol.asyncDispose]()
+  }
+}
+
+function* proxyProviders(
+  contexts: Iterable<ModuleContext>,
+): Generator<Provider> {
+  for (const { injector } of contexts) {
+    for (const token of injector) {
+      yield proxyToken(token, injector)
+    }
+  }
+}
+
+function proxyToken<V extends Value>(
+  token: Token<V>,
+  injector: Injector,
+): Provider<V> {
+  return {
+    provide: token,
+    autoDispose: false,
+    useFactory: () => injector.get(token),
+  }
 }
 
 function* enumerateModules(Module: Instantiable): Generator<Instantiable> {
+  yield Module
+
   const { imports } = getModuleOptions(Module)
   if (imports) {
     for (const module of imports) {
       yield* enumerateModules(module)
     }
   }
-
-  yield Module
 }
 
 function getModuleOptions(Module: Instantiable): ModuleOptions {

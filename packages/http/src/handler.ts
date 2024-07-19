@@ -9,17 +9,17 @@ export type AsHandler<M extends Middleware<any, any, any>> =
 
 /**
  * Convert a middleware in a function that can be used as both a middleware and
- * and handler.
+ * an http listener.
  */
 export function asHandler<M extends Middleware<any, any, any>>(
   middleware: M,
-  options?: FinalHandlerOptions
+  options?: FinalHandlerOptions,
 ) {
   return function (
     this,
     req,
     res,
-    next = once(createFinalHandler(req, res, options))
+    next = once(createFinalHandler(req, res, options)),
   ) {
     return middleware.call(this, req, res, next)
   } as AsHandler<M>
