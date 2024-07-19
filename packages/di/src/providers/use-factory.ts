@@ -4,13 +4,14 @@ import { Factory } from './factory.js'
 
 export type UseFactory<V extends Value = Value> = {
   useFactory: (...args: any[]) => V
+  autoDispose?: boolean
   inject?: Token[]
 }
 
 export function compileUseFactory<V extends Value = Value>(
   options: UseFactory<V>,
 ): Factory<V> {
-  const { useFactory, inject } = options
+  const { useFactory, inject, autoDispose = true } = options
 
   // Clone to prevent mutation
   const tokens: Token[] = inject ? [...inject] : []
@@ -23,7 +24,7 @@ export function compileUseFactory<V extends Value = Value>(
   }
 
   return {
-    dispose: true,
+    autoDispose,
     create: (injector) => useFactory(...tokens.map(injector.get, injector)),
   }
 }

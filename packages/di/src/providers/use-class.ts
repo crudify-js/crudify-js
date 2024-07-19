@@ -1,6 +1,7 @@
 import { assertInjectable } from '../decorators/injectable.js'
 import { Value } from '../token.js'
-import { Factory, buildFactories, invokeCreate } from './factory.js'
+import { buildArguments } from './arguments.js'
+import { Factory } from './factory.js'
 import { Instantiable } from './instantiable.js'
 
 export type UseClass<V extends Value = Value> = {
@@ -12,13 +13,13 @@ export function compileUseClass<V extends Value = Value>({
 }: UseClass<V>): Factory<V> {
   assertInjectable(useClass)
 
-  const factories = buildFactories(useClass)
-  if (!factories) throw new TypeError(`useClass argument must be a class.`)
+  const getArgs = buildArguments(useClass)
+  if (!getArgs) throw new TypeError(`useClass argument must be a class.`)
 
   return {
-    dispose: true,
+    autoDispose: true,
     create: (injector) => {
-      const args = factories.map(invokeCreate, injector)
+      const args = getArgs(injector)
       return new useClass(...args)
     },
   }

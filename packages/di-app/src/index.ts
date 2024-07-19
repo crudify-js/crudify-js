@@ -63,10 +63,14 @@ class Context {
         options.provides,
         // Expose every providers from the dependencies
         parents.flatMap(({ injector }) =>
-          Array.from(injector, (token) => ({
-            provide: token,
-            useValue: injector.get(token),
-          })),
+          Array.from(injector, (token) => {
+            const value = injector.get(token, { optional: true })
+            if (value === undefined) return undefined
+            return {
+              provide: token,
+              useValue: value,
+            }
+          }).filter((v) => v !== undefined),
         ),
       ),
     )

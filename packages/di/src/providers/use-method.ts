@@ -1,7 +1,8 @@
 import { assertInjectable } from '../decorators/injectable.js'
 import { Value } from '../token.js'
 import { stringify } from '../util/stringify.js'
-import { Factory, buildFactories, invokeCreate } from './factory.js'
+import { buildArguments } from './arguments.js'
+import { Factory } from './factory.js'
 import { Instantiable } from './instantiable.js'
 
 export type UseMethod<V extends Value = Value> = {
@@ -15,11 +16,11 @@ export function compileUseMethod<V extends Value = Value>({
 }: UseMethod<V>): Factory<V & Function> {
   assertInjectable(useMethod)
 
-  const factories = buildFactories(useMethod.prototype, methodName)
-  if (!factories) throw new TypeError(`useMethod argument must be a class.`)
+  const getArgs = buildArguments(useMethod.prototype, methodName)
+  if (!getArgs) throw new TypeError(`useMethod argument must be a class.`)
 
   return {
-    dispose: false,
+    autoDispose: false,
     create: (injector) => {
       const object = injector.get(useMethod)
       if (object == null || typeof object !== 'object') {
@@ -34,7 +35,7 @@ export function compileUseMethod<V extends Value = Value>({
           `Method ${String(methodName)} not found in ${stringify(useMethod)}`,
         )
       }
-      const injectedArgs = factories.map(invokeCreate, injector)
+      const injectedArgs = getArgs(injector)
 
       // @TODO (?) we could provide a special injection token allowing the method to capture
       // the the extra arguments that are passed to the function when called. We could also

@@ -9,7 +9,7 @@ export function compileUseExisting<V extends Value = Value>({
   useExisting,
 }: UseExisting<V>): Factory<V> {
   return {
-    dispose: false,
+    autoDispose: false,
     create: (injector) => injector.get(useExisting),
   }
 }

@@ -159,7 +159,7 @@ export class Injector implements AsyncDisposable, FactoryInjector {
         value,
       })
 
-      if (factory.dispose) {
+      if (factory.autoDispose) {
         this.#disposableStack.use(value)
       }
 

@@ -1,5 +1,5 @@
 import {
-  asDerived,
+  Inject,
   Derived,
   Injectable,
   Instantiable,
@@ -9,18 +9,18 @@ import { IncomingMessage, ServerResponse } from '@crudify-js/http'
 import { HttpMethod, HttpParams, NextFn } from './tokens.js'
 import { RouteParams } from './routes.js'
 
-export const Req = asDerived(IncomingMessage)
-export const Res = asDerived(ServerResponse)
-export const Next = asDerived(NextFn)
-export const Method = asDerived(HttpMethod)
-export const Query = asDerived(URLSearchParams)
-export const Url = asDerived(URL)
-export const Params = asDerived(HttpParams)
+export const Req = Inject(IncomingMessage)
+export const Res = Inject(ServerResponse)
+export const Next = Inject(NextFn)
+export const Method = Inject(HttpMethod)
+export const Query = Inject(URLSearchParams)
+export const Url = Inject(URL)
+export const Params = Inject(HttpParams)
 
 export const Param = (name: string) =>
-  Derived<string>({
-    inject: [HttpParams],
-    useFactory: (params: RouteParams) => {
+  Derived({
+    tokens: [HttpParams],
+    getter: (params: RouteParams): string => {
       if (!Object.hasOwn(params, name) || params[name] == null) {
         throw new Error(`Param ${name} not found`)
       }
