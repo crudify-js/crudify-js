@@ -19,17 +19,17 @@ import 'reflect-metadata'
 export type ModuleOptions = {
   controllers?: Instantiable[]
   provides?: Provider[]
-  // exports?: (Provider | Token)[]
-  exports?: Token[]
+  exports?: (Provider | Token)[]
+  // exports?: Token[]
   imports?: Instantiable[]
 }
 
 const makeInjectable = Injectable()
 
 export function Module(options: ModuleOptions = {}) {
-  return function (target: Instantiable) {
-    Reflect.defineMetadata('di:module', options, target)
-    makeInjectable(target)
+  return function (Target: Instantiable) {
+    Reflect.defineMetadata('di:module', options, Target)
+    makeInjectable(Target)
   }
 }
 
@@ -61,7 +61,13 @@ class ModuleContext {
     )
 
     this.injector = new Injector(
-      options.exports?.map((token) => proxyToken(token, this.#injector)),
+      options.exports?.map((value) => {
+        const token =
+          value != null && typeof value === 'object' && 'provide' in value
+            ? value.provide
+            : value
+        return proxyToken(token, this.#injector)
+      }),
     )
 
     this.router = options.controllers
@@ -111,6 +117,7 @@ class AppContext {
           visited.get,
           visited,
         ) as Token[],
+        autoDispose: true,
         useFactory: (...imports: ModuleContext[]) =>
           new ModuleContext(Mod, imports),
       })),
