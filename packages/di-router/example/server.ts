@@ -24,7 +24,7 @@ export async function server(signal: AbortSignal, injector: Injector) {
     ],
   })
 
-  const server = createServer(router.middleware)
+  const server = createServer(router.handler)
 
   await startServer(signal, server, http.port)
 }

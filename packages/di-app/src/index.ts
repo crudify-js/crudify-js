@@ -96,7 +96,7 @@ class Context {
   get handler(): Handler {
     return asHandler(
       combineMiddlewares([
-        this.router.middleware,
+        this.router.handler,
         combineMiddlewares(this.parents.map((p) => p.handler)),
       ]),
     )

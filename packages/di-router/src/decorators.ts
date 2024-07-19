@@ -7,7 +7,7 @@ import {
 } from '@crudify-js/di'
 import { IncomingMessage, ServerResponse } from '@crudify-js/http'
 import { HttpMethod, HttpParams, NextFn } from './tokens.js'
-import { RouteParams } from './routes.js'
+import { RouteParams } from './params.js'
 
 export const Req = Inject(IncomingMessage)
 export const Res = Inject(ServerResponse)
