@@ -6,13 +6,9 @@ import {
   asHandler,
 } from '@crudify-js/http'
 import { Routes } from './routes.js'
-import {
-  HttpMethod,
-  HttpParams,
-  NextFn,
-  URLSearchParamsProvider,
-} from './tokens.js'
+import { HttpMethod, HttpParams, NextFn } from './tokens.js'
 import { combineIterables } from './util.js'
+import { URLSearchParamsProvider } from './providers.js'
 
 export class Router implements AsyncDisposable {
   protected injector: Injector
@@ -34,6 +30,7 @@ export class Router implements AsyncDisposable {
           { provide: NextFn, useValue: next },
           { provide: IncomingMessage, useValue: req },
           { provide: ServerResponse, useValue: res },
+          URLSearchParamsProvider,
         ])
 
         const handler = requestInjector.get(route.token)
@@ -60,7 +57,6 @@ export class Router implements AsyncDisposable {
     const providers = combineIterables(
       config.providers,
       Routes.fromControllers(config.controllers),
-      [URLSearchParamsProvider],
     )
     this.injector = config.injector?.fork(providers) || new Injector(providers)
     this.routes = this.injector.get(Routes)
