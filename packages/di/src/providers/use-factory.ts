@@ -8,7 +8,7 @@ export type UseFactory<V extends Value = Value> = {
 }
 
 export function compileUseFactory<V extends Value = Value>(
-  options: UseFactory<V>
+  options: UseFactory<V>,
 ): Factory<V> {
   const { useFactory, inject } = options
 
@@ -18,9 +18,12 @@ export function compileUseFactory<V extends Value = Value>(
   if (useFactory.length > tokens.length) {
     const name = stringify('provide' in options ? options.provide : useFactory)
     throw new TypeError(
-      `Missing inject token for argument ${tokens.length} of useFactory ${name}`
+      `Missing inject token for argument ${tokens.length} of useFactory ${name}`,
     )
   }
 
-  return (injector) => useFactory(...tokens.map(injector.get, injector))
+  return {
+    dispose: true,
+    create: (injector) => useFactory(...tokens.map(injector.get, injector)),
+  }
 }

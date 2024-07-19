@@ -8,5 +8,8 @@ export type UseExisting<V extends Value = Value> = {
 export function compileUseExisting<V extends Value = Value>({
   useExisting,
 }: UseExisting<V>): Factory<V> {
-  return (injector) => injector.get(useExisting)
+  return {
+    dispose: false,
+    create: (injector) => injector.get(useExisting),
+  }
 }

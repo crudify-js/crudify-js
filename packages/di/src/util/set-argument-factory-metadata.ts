@@ -1,3 +1,4 @@
+import { Factory } from '../providers/factory.js'
 import { getArrayMetadata } from './get-array-metadata.js'
 import { getDecoratedFunction } from './get-decorated-function.js'
 
@@ -5,11 +6,11 @@ export function setArgumentFactoryMetadata(
   target: Object,
   key: string | symbol | undefined,
   parameterIndex: number,
-  factory: Function
+  factory: Factory,
 ) {
   if (!getDecoratedFunction(target, key)) {
     throw new TypeError(
-      `The @Provide decorator can only be used on a constructor or method parameter.`
+      `The @Provide decorator can only be used on a constructor or method parameter.`,
     )
   }
 
@@ -17,7 +18,7 @@ export function setArgumentFactoryMetadata(
 
   if (args[parameterIndex] !== undefined) {
     throw new TypeError(
-      `The @Provide decorator can only be used once per parameter.`
+      `The @Provide decorator can only be used once per parameter.`,
     )
   }
 

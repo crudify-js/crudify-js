@@ -1,54 +1,46 @@
-import { Provider, valueProvider } from '@crudify-js/di'
-import { IncomingMessage, NextFunction, ServerResponse } from '@crudify-js/http'
+import { Provider, Token } from '@crudify-js/di'
+import { IncomingMessage, NextFunction } from '@crudify-js/http'
 import { RouteParams } from './routes.js'
 
-export abstract class NextFn extends valueProvider<NextFunction>() {}
-export abstract class HttpRequest extends valueProvider<IncomingMessage>() {}
-export abstract class HttpResponse extends valueProvider<ServerResponse>() {}
-
-export abstract class HttpMethod extends valueProvider<string>() {}
-export abstract class HttpParams extends valueProvider<RouteParams>() {}
-
-export abstract class HttpQuery extends valueProvider<URLSearchParams>() {
-  static fromIncomingMessage(req: IncomingMessage) {
-    return this.fromUrl(req.url)
-  }
-  static fromUrl(url?: string) {
-    return this.fromString(url?.split('?', 2)[1])
-  }
-  static fromString(str?: string) {
-    return this.provideValue(new URLSearchParams(str))
-  }
-}
+export const NextFn: Token<NextFunction> = Symbol('NextFunction')
+export const HttpMethod: Token<string> = Symbol('HttpMethod')
+export const HttpParams: Token<RouteParams> = Symbol('HttpParams')
 
 export const URLSearchParamsProvider: Provider<URLSearchParams> = {
   provide: URLSearchParams,
-  inject: [HttpQuery],
-  useFactory: (i: HttpQuery) => i.value,
+  inject: [IncomingMessage],
+  useFactory: (req: IncomingMessage) =>
+    new URLSearchParams(req.url?.split('?')[1] ?? ''),
 }
 
-export type HttpUrlOptions = {
+export type URLProviderOptions = {
   trustProxy?: boolean
   origin?: string | URL
 }
-export abstract class HttpUrl extends valueProvider<URL>() {
-  static fromIncomingMessage(
-    req: IncomingMessage,
-    options?: HttpUrlOptions,
-  ): Provider<{ value: URL }> {
-    if (options?.origin) {
-      return this.provideValue(new URL(req.url || '/', options.origin))
+
+export const URLProviderFactory = (
+  options?: URLProviderOptions,
+): Provider<URL> => {
+  const origin = options?.origin
+  if (origin) {
+    return {
+      provide: URL,
+      inject: [IncomingMessage],
+      useFactory: (req: IncomingMessage) => new URL(req.url || '/', origin),
     }
+  }
 
-    return this.provideLazy(() => {
-      const trustProxy = options?.trustProxy === true
-
+  const trustProxy = options?.trustProxy === true
+  return {
+    provide: URL,
+    inject: [IncomingMessage],
+    useFactory: (req: IncomingMessage) => {
       const host: string | undefined =
         ifString(trustProxy && req.headers['x-forwarded-host']) ??
         ifString(req.headers['host'])
 
       if (!host) {
-        throw new Error(`Host header is required to construct URL`)
+        throw new Error(`HTTP/1.0 compatibility requires an "origin" header`)
       }
 
       const protocol: 'http' | 'https' =
@@ -63,26 +55,8 @@ export abstract class HttpUrl extends valueProvider<URL>() {
           (protocol === 'http' ? '80' : '443')
 
       return new URL(`${protocol}://${host}${port ? `:${port}` : ''}${req.url}`)
-    })
+    },
   }
-}
-
-export const URLProvider: Provider<URL> = {
-  provide: URL,
-  inject: [HttpUrl],
-  useFactory: (i: HttpUrl) => i.value,
-}
-
-export const IncomingMessageProvider: Provider<IncomingMessage> = {
-  provide: IncomingMessage,
-  inject: [HttpRequest],
-  useFactory: (i: HttpRequest) => i.value,
-}
-
-export const ServerResponseProvider: Provider<ServerResponse> = {
-  provide: ServerResponse,
-  inject: [HttpResponse],
-  useFactory: (i: HttpResponse) => i.value,
 }
 
 function ifString(v: unknown): undefined | string {

@@ -1,11 +1,15 @@
 export function once<F extends (this: unknown, ...args: unknown[]) => unknown>(
-  fn: F
+  fn: F,
 ): F {
   let state:
     | PromiseSettledResult<ReturnType<F>>
     | { status: 'pending'; fn: F } = { status: 'pending', fn }
 
-  return function (
+  Object.defineProperty(fnOnce, 'name', { value: `once ${fn.name}` })
+
+  return fnOnce as F
+
+  function fnOnce(
     this: ThisParameterType<F>,
     ...args: Parameters<F>
   ): ReturnType<F> {
@@ -25,5 +29,5 @@ export function once<F extends (this: unknown, ...args: unknown[]) => unknown>(
       state = { status: 'rejected', reason }
       throw reason
     }
-  } as F
+  }
 }

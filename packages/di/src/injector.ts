@@ -1,5 +1,5 @@
 import { compileProviders } from './providers/compile.js'
-import { Factory } from './providers/factory.js'
+import { Factory, FactoryInjector } from './providers/factory.js'
 import { Provider } from './providers/provider.js'
 import { Token, Value } from './token.js'
 import { allFulfilled } from './util/all-fulfilled.js'
@@ -7,7 +7,7 @@ import { AsyncDisposableStack } from './util/disposable.js'
 import { once } from './util/once.js'
 import { stringify } from './util/stringify.js'
 
-export class Injector implements AsyncDisposable {
+export class Injector implements AsyncDisposable, FactoryInjector {
   #disposeListeners: (() => void | Promise<void>)[] = []
   #disposableStack = new AsyncDisposableStack()
 
@@ -18,7 +18,7 @@ export class Injector implements AsyncDisposable {
 
   constructor(
     providers?: Iterable<Provider>,
-    protected parent?: Injector
+    protected parent?: Injector,
   ) {
     this.#factories = compileProviders(providers)
     if (parent) {
@@ -39,10 +39,12 @@ export class Injector implements AsyncDisposable {
     this.throwIfDisposed()
     this.#disposeListeners.push(listener)
 
-    return once(() => {
+    const removeDisposeListener = () => {
       const index = this.#disposeListeners.indexOf(listener)
       if (index !== -1) this.#disposeListeners.splice(index, 1)
-    })
+    }
+
+    return once(removeDisposeListener)
   }
 
   fork(providers?: Iterable<Provider>) {
@@ -107,12 +109,12 @@ export class Injector implements AsyncDisposable {
 
   get<V extends Value>(
     token: Token<V>,
-    options: { optional: true }
+    options: { optional: true },
   ): V | undefined
   get<V extends Value>(token: Token<V>, options?: { optional?: false }): V
   get<V extends Value>(
     token: Token<V>,
-    options?: { optional?: boolean }
+    options?: { optional?: boolean },
   ): V | undefined {
     const current = this.find(token)
     if (current) return current
@@ -139,7 +141,7 @@ export class Injector implements AsyncDisposable {
         inst.dependencies.add(token)
       }
 
-      const value = factory(this)
+      const value = factory.create(this)
 
       // Store the value the oldest ancestor, up to the "factoryInjector" that
       // defines the factory, that has no child injector with a factory for the
@@ -157,7 +159,9 @@ export class Injector implements AsyncDisposable {
         value,
       })
 
-      this.#disposableStack.use(value)
+      if (factory.dispose) {
+        this.#disposableStack.use(value)
+      }
 
       return value
     } finally {
@@ -176,7 +180,7 @@ export class Injector implements AsyncDisposable {
     try {
       await allFulfilled(
         this.#disposeListeners.splice(0, Infinity).map(execAsync),
-        'An error occurred during onDispose listeners execution'
+        'An error occurred during onDispose listeners execution',
       )
     } catch (error) {
       errors.push(error)
@@ -205,6 +209,6 @@ async function execAsync(fn: () => void | Promise<void>) {
 
 function throwParentDisposedBeforeChildren() {
   throw new Error(
-    'Parent injector was disposed. Make sure to dispose all child injector(s) before disposing the parent injector.'
+    'Parent injector was disposed. Make sure to dispose all child injector(s) before disposing the parent injector.',
   )
 }

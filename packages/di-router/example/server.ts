@@ -10,11 +10,11 @@ import { RequestLogger } from './providers/request-logger.js'
 import { Home } from './routes/home.js'
 
 export async function server(signal: AbortSignal, injector: Injector) {
-  const config = injector.get(Config)
+  const { http } = injector.get(Config)
 
   await using router = new Router({
     controllers: [Home],
-    options: config.http,
+    options: http,
     injector,
     providers: [
       // Override the default Logger with a RequestLogger
@@ -27,5 +27,5 @@ export async function server(signal: AbortSignal, injector: Injector) {
 
   const server = createServer(router.middleware)
 
-  await startServer(signal, server, config.http.port)
+  await startServer(signal, server, http.port)
 }

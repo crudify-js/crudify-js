@@ -1,11 +1,13 @@
 import { ChildProcess } from 'node:child_process'
 
+export type Runable<T> = (stopSignal: AbortSignal) => T | PromiseLike<T>
+
 export async function run<T>(
-  main: (stopSignal: AbortSignal) => T | PromiseLike<T>,
+  main: Runable<T>,
   onabort = (reason: unknown): void => {
     console.info('Shutdown initiated...')
     setupTerminator()
-  }
+  },
 ): Promise<T> {
   const stopController = new AbortController()
 
@@ -68,7 +70,7 @@ export function setupTerminator({
 }: TerminatorOptions = {}) {
   const seconds = (killTimeout / 1e3).toFixed(1)
   console.info(
-    `Send ${signals.join(' or ')} to terminate now (timeout ${seconds}s).`
+    `Send ${signals.join(' or ')} to terminate now (timeout ${seconds}s).`,
   )
 
   const timer = setTimeout(exitNow, killTimeout, 'timeout').unref()
@@ -88,7 +90,7 @@ function exitNow(cause: string) {
 export async function killChildProcess(
   child: ChildProcess,
   signal: NodeJS.Signals = 'SIGTERM',
-  timeout = 10e3
+  timeout = 10e3,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     if (!child.kill(signal)) return resolve()
@@ -127,7 +129,7 @@ export async function killChildProcess(
       },
       timeout - 100,
       // Instantiate the error here to capture the stack trace
-      new Error(`Failed to kill process ${child.pid} within ${timeout}ms`)
+      new Error(`Failed to kill process ${child.pid} within ${timeout}ms`),
     )
   })
 }

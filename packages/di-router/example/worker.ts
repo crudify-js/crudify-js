@@ -3,10 +3,11 @@ import { Injector } from '@crudify-js/di'
 import { Config } from './providers/config.js'
 import { Logger } from './providers/logger.js'
 import { sleep } from './util/sleep.js'
+import { subTasks } from './util/sub-tasks.js'
 
 export async function worker(signal: AbortSignal, rootInjector: Injector) {
-  // Worker specific overrides of global services
-  await using injector = rootInjector.fork([
+  // Worker specific overrides of root services
+  await using workerInjector = rootInjector.fork([
     {
       provide: Logger,
       inject: [Config],
@@ -15,12 +16,33 @@ export async function worker(signal: AbortSignal, rootInjector: Injector) {
     },
   ])
 
-  while (!signal.aborted) {
-    injector.get(Logger).log('Working')
-    await sleep(10_000, signal)
-  }
+  await subTasks(signal, [
+    //
+    (signal) => myTask(signal, workerInjector),
+  ])
+}
 
-  injector.get(Logger).log('Cleaning up...')
-  await sleep(500)
-  injector.get(Logger).log('Done')
+async function myTask(signal: AbortSignal, rootInjector: Injector) {
+  // overrides for this particular task
+  await using injector = rootInjector.fork([
+    {
+      provide: Logger,
+      inject: [Config],
+      useFactory: (config: Config) =>
+        new Logger(config.log.prefix + ' > myTask'),
+    },
+  ])
+
+  const logger = injector.get(Logger)
+
+  try {
+    while (!signal.aborted) {
+      logger.log('Working')
+      await sleep(10_000, signal)
+    }
+  } finally {
+    logger.log('Cleaning up...')
+    await sleep(500)
+    logger.log('Done')
+  }
 }

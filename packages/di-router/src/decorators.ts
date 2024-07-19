@@ -1,55 +1,30 @@
-import { Derived, Injectable, Instantiable, Value } from '@crudify-js/di'
-import { NextFunction } from '@crudify-js/http'
 import {
-  HttpMethod,
-  HttpParams,
-  HttpQuery,
-  HttpRequest,
-  HttpResponse,
-  HttpUrl,
-  NextFn,
-} from './tokens.js'
+  asDerived,
+  Derived,
+  Injectable,
+  Instantiable,
+  Value,
+} from '@crudify-js/di'
+import { IncomingMessage, ServerResponse } from '@crudify-js/http'
+import { HttpMethod, HttpParams, NextFn } from './tokens.js'
+import { RouteParams } from './routes.js'
 
-export const Req = Derived({
-  inject: [HttpRequest],
-  useFactory: (i: HttpRequest) => i.value,
-})
-export const Res = Derived({
-  inject: [HttpResponse],
-  useFactory: (i: HttpResponse) => i.value,
-})
-export const Next = Derived({
-  inject: [NextFn],
-  useFactory:
-    ({ value }: NextFn): NextFunction =>
-    // We do not simply return value to ensure that `this` is not propagated
-    (...args) =>
-      value(...args),
-})
-export const Method = Derived({
-  inject: [HttpMethod],
-  useFactory: (i: HttpMethod) => i.value,
-})
-export const Query = Derived({
-  inject: [HttpQuery],
-  useFactory: (i: HttpQuery) => i.value,
-})
-export const Url = Derived({
-  inject: [HttpUrl],
-  useFactory: (i: HttpUrl) => i.value,
-})
-export const Params = Derived({
-  inject: [HttpParams],
-  useFactory: (i: HttpParams) => i.value,
-})
+export const Req = asDerived(IncomingMessage)
+export const Res = asDerived(ServerResponse)
+export const Next = asDerived(NextFn)
+export const Method = asDerived(HttpMethod)
+export const Query = asDerived(URLSearchParams)
+export const Url = asDerived(URL)
+export const Params = asDerived(HttpParams)
+
 export const Param = (name: string) =>
-  Derived({
+  Derived<string>({
     inject: [HttpParams],
-    useFactory: ({ value }: HttpParams) => {
-      if (!Object.hasOwn(value, name)) {
+    useFactory: (params: RouteParams) => {
+      if (!Object.hasOwn(params, name) || params[name] == null) {
         throw new Error(`Param ${name} not found`)
       }
-      return value[name]
+      return params[name]
     },
   })
 

@@ -2,8 +2,10 @@ import { allFulfilled } from './all-fulfilled.js'
 
 export async function subTasks<T>(
   signal: AbortSignal,
-  fns: Iterable<(signal: AbortSignal) => T | PromiseLike<T>>
+  fns: Iterable<(signal: AbortSignal) => T | PromiseLike<T>>,
 ) {
+  signal.throwIfAborted()
+
   const controller = new AbortController()
   const abort = () => controller.abort()
   signal.addEventListener('abort', abort, { signal: controller.signal })

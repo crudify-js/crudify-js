@@ -52,6 +52,7 @@ export class AsyncDisposableStack implements AsyncDisposable {
     // Dispose in reverse order
     for (let i = stack.length - 1; i >= 0; i--) {
       const item = stack[i]
+      console.debug('Disposing', item)
       try {
         if (isAsyncDisposable(item)) {
           await item[Symbol.asyncDispose]()
@@ -66,7 +67,7 @@ export class AsyncDisposableStack implements AsyncDisposable {
     if (errors.length) {
       throw new AggregateError(
         errors,
-        `An error occurred while disposing the stack.`
+        `An error occurred while disposing the stack.`,
       )
     }
   }

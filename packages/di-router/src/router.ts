@@ -9,24 +9,16 @@ import { Routes } from './routes.js'
 import {
   HttpMethod,
   HttpParams,
-  HttpQuery,
-  HttpRequest,
-  HttpResponse,
-  HttpUrl,
-  HttpUrlOptions,
-  IncomingMessageProvider,
+  URLProviderOptions,
   NextFn,
-  ServerResponseProvider,
-  URLProvider,
+  URLProviderFactory,
   URLSearchParamsProvider,
 } from './tokens.js'
 import { combineIterables } from './util.js'
 
-export type RouterMiddlewareOptions = HttpUrlOptions
+export type RouterMiddlewareOptions = URLProviderOptions
 
 export class Router implements AsyncDisposable {
-  protected options?: RouterMiddlewareOptions
-
   protected injector: Injector
   protected routes: Routes
 
@@ -42,19 +34,11 @@ export class Router implements AsyncDisposable {
 
         // Create an injector for this particular request
         await using requestInjector = this.injector.fork([
-          HttpMethod.provideValue(method),
-          HttpParams.provideValue(route.params),
-          HttpQuery.fromUrl(url),
-          HttpRequest.provideValue(req),
-          HttpResponse.provideValue(res),
-          HttpUrl.fromIncomingMessage(req, this.options),
-          NextFn.provideValue(next),
-
-          // Short hand getters
-          URLProvider,
-          URLSearchParamsProvider,
-          IncomingMessageProvider,
-          ServerResponseProvider,
+          { provide: HttpMethod, useValue: method },
+          { provide: HttpParams, useValue: route.params },
+          { provide: NextFn, useValue: next },
+          { provide: IncomingMessage, useValue: req },
+          { provide: ServerResponse, useValue: res },
         ])
 
         const handler = requestInjector.get(route.token)
@@ -84,8 +68,8 @@ export class Router implements AsyncDisposable {
     const providers = combineIterables(
       config.providers,
       Routes.fromControllers(config.controllers),
+      [URLProviderFactory(config.options), URLSearchParamsProvider],
     )
-    this.options = config.options
     this.injector = config.injector?.fork(providers) || new Injector(providers)
     this.routes = this.injector.get(Routes)
   }

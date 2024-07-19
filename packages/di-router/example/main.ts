@@ -13,6 +13,8 @@ export async function main(signal: AbortSignal, cfg?: ConfigValue) {
     LoggerProvider,
   ])
 
+  if (signal.aborted) return
+
   await subTasks(signal, [
     (signal) => server(signal, rootInjector),
     (signal) => worker(signal, rootInjector),

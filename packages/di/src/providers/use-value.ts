@@ -8,5 +8,8 @@ export type UseValue<V extends Value = Value> = {
 export function compileUseValue<V extends Value = Value>({
   useValue,
 }: UseValue<V>): Factory<V> {
-  return () => useValue
+  return {
+    dispose: false,
+    create: () => useValue,
+  }
 }

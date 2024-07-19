@@ -5,15 +5,22 @@ import { getDecoratedFunction } from '../util/get-decorated-function.js'
 import { stringifyTarget } from '../util/stringify-target.js'
 
 // Not using Injector from "../injector.ts" to avoid circular dependency
-interface FactoryInjector {
+export interface FactoryInjector {
   get<V extends Value = Value>(token: Token<V>): V
 }
 
-export type Factory<V extends Value = Value> = (injector: FactoryInjector) => V
+export type Factory<V extends Value = Value> = {
+  dispose: boolean
+  create: (injector: FactoryInjector) => V
+}
+
+export function invokeCreate<V>(this: FactoryInjector, factory: Factory<V>): V {
+  return factory.create(this)
+}
 
 export function buildFactories(
   target: Object,
-  key?: string | symbol
+  key?: string | symbol,
 ): undefined | Factory[] {
   const item = getDecoratedFunction(target, key)
   if (!item) return undefined
@@ -24,7 +31,7 @@ export function buildFactories(
   const length = Math.max(
     item.length,
     types?.length ?? 0,
-    diFactories?.length ?? 0
+    diFactories?.length ?? 0,
   )
 
   const factories: Factory[] = Array(length)
@@ -38,13 +45,16 @@ export function buildFactories(
 
     const type = types?.[i]
     if (isToken(type)) {
-      factories[i] = (injector) => injector.get(type)
+      factories[i] = {
+        dispose: false,
+        create: (injector) => injector.get(type),
+      }
       continue
     }
 
     const targetStr = stringifyTarget(target, key)
     throw new Error(
-      `Unable to determine injection token for parameter ${i} of ${targetStr}.`
+      `Unable to determine injection token for parameter ${i} of ${targetStr}.`,
     )
   }
 

@@ -15,7 +15,7 @@ export type ProviderOptions<V extends Value = Value> = {
 } & (UseFactory<V> | UseClass<V> | UseMethod<V> | UseExisting<V> | UseValue<V>)
 
 export function compileProviders(
-  iterable?: Iterable<Instantiable | ProviderOptions>
+  iterable?: Iterable<Instantiable | ProviderOptions>,
 ): Map<Token, Factory> {
   const factories = new Map<Token, Factory>()
   if (iterable) {
@@ -32,7 +32,7 @@ export function compileProviders(
 }
 
 function compileProvider<V extends Value = Value>(
-  provider: Instantiable<V> | ProviderOptions<V>
+  provider: Instantiable<V> | ProviderOptions<V>,
 ): { provide: Token<V>; factory: Factory<V> } {
   const options: ProviderOptions<V> =
     typeof provider === 'function'
@@ -63,7 +63,7 @@ function compileProvider<V extends Value = Value>(
     }
 
     throw new TypeError(
-      'Options must contain one of "useClass", "useExisting", "useFactory", "useMethod" or "useValue",'
+      'Options must contain one of "useClass", "useExisting", "useFactory", "useMethod" or "useValue",',
     )
   } catch (cause) {
     throw new TypeError(`Unable to compile provider: ${stringify(provide)}`, {
