@@ -14,13 +14,11 @@ export const Res = Inject(ServerResponse)
 export const Next = Inject(NextFn)
 export const Method = Inject(HttpMethod)
 export const Query = Inject(URLSearchParams)
-export const Url = Inject(URL)
 export const Params = Inject(HttpParams)
-
 export const Param = (name: string) =>
   Derived({
     tokens: [HttpParams],
-    getter: (params: RouteParams): string => {
+    getter: (params: RouteParams) => {
       if (!Object.hasOwn(params, name) || params[name] == null) {
         throw new Error(`Param ${name} not found`)
       }

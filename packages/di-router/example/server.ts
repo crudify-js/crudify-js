@@ -14,7 +14,6 @@ export async function server(signal: AbortSignal, injector: Injector) {
 
   await using router = new Router({
     controllers: [Home],
-    options: http,
     injector,
     providers: [
       // Override the default Logger with a RequestLogger

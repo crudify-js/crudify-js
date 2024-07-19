@@ -9,14 +9,10 @@ import { Routes } from './routes.js'
 import {
   HttpMethod,
   HttpParams,
-  URLProviderOptions,
   NextFn,
-  URLProviderFactory,
   URLSearchParamsProvider,
 } from './tokens.js'
 import { combineIterables } from './util.js'
-
-export type RouterMiddlewareOptions = URLProviderOptions
 
 export class Router implements AsyncDisposable {
   protected injector: Injector
@@ -58,14 +54,13 @@ export class Router implements AsyncDisposable {
 
   constructor(config: {
     controllers: Iterable<Instantiable>
-    options?: RouterMiddlewareOptions
     providers?: Iterable<Provider>
     injector?: Injector
   }) {
     const providers = combineIterables(
       config.providers,
       Routes.fromControllers(config.controllers),
-      [URLProviderFactory(config.options), URLSearchParamsProvider],
+      [URLSearchParamsProvider],
     )
     this.injector = config.injector?.fork(providers) || new Injector(providers)
     this.routes = this.injector.get(Routes)

@@ -19,11 +19,10 @@ export class Home {
     // Parameters are automatically injected based on the type (thanks to
     // typescrip's emit metadata)
     req: IncomingMessage,
-    url: URL,
     searchParams: URLSearchParams,
     logger: Logger,
   ) {
-    const response = `Home (url:${url} req.url:${req.url} searchParams:${searchParams})`
+    const response = `Home (req.url:${req.url} searchParams:${searchParams})`
     logger.log(response)
     return response
   }

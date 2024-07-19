@@ -1,8 +1,9 @@
 import { valueProvider } from '@crudify-js/di'
-import { RouterMiddlewareOptions } from '@crudify-js/di-router'
 
 export type ConfigValue = {
-  http: RouterMiddlewareOptions & {
+  http: {
+    trustProxy: boolean
+    origin: URL
     port: string
   }
   log: {

@@ -18,9 +18,8 @@ export class Home {
     // Parameters are automatically injected based on the type (thanks to
     // typescrip's emit metadata)
     req: IncomingMessage,
-    url: URL,
     searchParams: URLSearchParams,
   ) {
-    return `Home (url:${url} req.url:${req.url} searchParams:${searchParams})`
+    return `Home (req.url:${req.url} searchParams:${searchParams})`
   }
 }
