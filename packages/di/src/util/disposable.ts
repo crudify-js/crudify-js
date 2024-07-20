@@ -39,7 +39,7 @@ export class AsyncDisposableStack implements AsyncDisposable {
     }
   }
 
-  async [Symbol.asyncDispose]() {
+  async dispose() {
     // Check if already disposed
     if (!this.#stack) return
 
@@ -52,7 +52,6 @@ export class AsyncDisposableStack implements AsyncDisposable {
     // Dispose in reverse order
     for (let i = stack.length - 1; i >= 0; i--) {
       const item = stack[i]
-      console.debug('Disposing', item)
       try {
         if (isAsyncDisposable(item)) {
           await item[Symbol.asyncDispose]()
@@ -70,5 +69,9 @@ export class AsyncDisposableStack implements AsyncDisposable {
         `An error occurred while disposing the stack.`,
       )
     }
+  }
+
+  async [Symbol.asyncDispose]() {
+    await this.dispose()
   }
 }

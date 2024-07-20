@@ -10,6 +10,6 @@ import { UsersService } from './modules/users/users.service.js'
 })
 export class AppModule {
   constructor(readonly userService: UsersService) {
-    console.log('Instantiating AppModule', userService.foo)
+    console.log('Instantiating:', this.constructor, { userService })
   }
 }

@@ -5,8 +5,7 @@
     "rootDir": "example",
 
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
+    "emitDecoratorMetadata": true
   },
-  "include": ["example"],
+  "include": ["example"]
 }
-

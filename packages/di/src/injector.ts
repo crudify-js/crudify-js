@@ -31,6 +31,10 @@ export class Injector implements AsyncDisposable, FactoryInjector {
     return this.#disposableStack.disposed
   }
 
+  get isInstantiating(): boolean {
+    return this.#instantiating.size > 0
+  }
+
   throwIfDisposed() {
     if (this.disposed) throw new Error('Injector is disposed')
   }
@@ -183,7 +187,7 @@ export class Injector implements AsyncDisposable, FactoryInjector {
   async [Symbol.asyncDispose]() {
     if (this.disposed) return
 
-    if (this.#instantiating.size) {
+    if (this.isInstantiating) {
       throw new Error('Injector cannot be disposed while instantiating values')
     }
 

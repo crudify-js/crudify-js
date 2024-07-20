@@ -4,7 +4,7 @@ import { Injectable } from '@crudify-js/di'
 export class UsersService {
   foo = 'bar'
   constructor() {
-    console.error('Instatiating UsersService')
+    console.error(`Instantiating:`, this.constructor)
   }
   async getUsers() {
     return [

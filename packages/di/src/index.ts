@@ -1,5 +1,9 @@
 export { Inject } from './decorators/inject.js'
-export { Injectable, assertInjectable } from './decorators/injectable.js'
+export {
+  Injectable,
+  assertInjectable,
+  isInjectable,
+} from './decorators/injectable.js'
 export { Injector } from './injector.js'
 export { Derived } from './providers/arguments.js'
 export { valueProvider } from './providers/value-provider.js'
