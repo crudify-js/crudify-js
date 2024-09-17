@@ -1,5 +1,5 @@
 import { Module } from '@crudify-js/di-app'
-import { HttpUtilModule } from '../http-util/http-util.module.js'
+import { HttpUtilModule } from '../http-util/module.js'
 import { UsersContoller } from './users.controller.js'
 import { UsersService } from './users.service.js'
 

@@ -1,8 +1,9 @@
 import { createServer } from 'node:http'
+import 'reflect-metadata'
 
 import { asHandler, startServer } from '@crudify-js/http'
 import {
-  assertInjectable,
+  isInjectable,
   Injectable,
   Injector,
   Instantiable,
@@ -14,13 +15,15 @@ import { run } from '@crudify-js/process'
 import { Router } from '@crudify-js/di-router'
 import { combineMiddlewares, Handler } from '@crudify-js/http'
 
-import 'reflect-metadata'
-
 export type ModuleOptions = {
   controllers?: Iterable<Instantiable>
   provides?: Iterable<Provider>
   exports?: Iterable<Provider | Token | Instantiable>
-  imports?: Iterable<Instantiable>
+  imports?: Iterable<Instantiable | DynamicModule>
+}
+
+export type DynamicModule = ModuleOptions & {
+  module: Instantiable
 }
 
 const makeInjectable = Injectable()
@@ -41,28 +44,24 @@ export async function bootstrap(Module: Instantiable, port: number = 4001) {
 }
 
 class ModuleContext {
+  readonly parents: ModuleContext[]
   readonly injector: Injector
   readonly router?: Router
 
-  constructor(
-    readonly Module: Instantiable,
-    readonly parent?: ModuleContext,
-  ) {
-    const { provides, controllers } = getModuleOptions(Module)
+  constructor(def: Instantiable | DynamicModule) {
+    const modules: Instantiable[] = []
+    const [Module, options] = parseModule(def)
 
-    const providers = combineIterables(
-      [{ provide: Module, useClass: Module }],
-      provides,
-    )
+    this.parents = Array.from(options.imports || [], (def) => new Mod())
+
+    const { controllers, provides } = options
+
+    const providers = flat(provides, [{ provide: Module, useClass: Module }])
 
     this.injector = new Injector(providers, parent?.injector)
     this.router = controllers
       ? new Router({ controllers, injector: this.injector })
       : undefined
-  }
-
-  get module() {
-    return this.injector.get(this.Module)
   }
 
   get handler(): Handler {
@@ -88,16 +87,7 @@ export class AppContext {
   readonly #moduleContext: ModuleContext
 
   constructor(Module: Instantiable) {
-    const modules: Instantiable[] = []
-
-    for (const mod of enumerateModules(Module)) {
-      if (!modules.includes(mod)) modules.push(mod)
-    }
-
-    this.#moduleContext = modules.reduce<undefined | ModuleContext>(
-      (prev, Mod) => new ModuleContext(Mod, prev),
-      undefined,
-    )!
+    this.#moduleContext = new ModuleContext(Module)
   }
 
   get<V extends Value>(token: Token<V>): V {
@@ -126,28 +116,46 @@ export class AppContext {
   }
 }
 
-function* enumerateModules(Module: Instantiable): Generator<Instantiable> {
+export function* enumerateModules(
+  def: Instantiable | DynamicModule,
+): Generator<ParsedModule> {
   // Depth first enumeration of modules
-  const { imports } = getModuleOptions(Module)
+  const parsed = parseModule(def)
+
+  const [, { imports }] = parsed
   if (imports) {
     for (const module of imports) {
       yield* enumerateModules(module)
     }
   }
 
-  yield Module
+  yield parsed
 }
 
-function getModuleOptions(Module: Instantiable): ModuleOptions {
-  assertInjectable(Module)
-
-  const options = Reflect.getMetadata('di:module', Module)
-  if (options) return options as ModuleOptions
-
-  throw new TypeError(`Module ${Module.name} is not a module.`)
+type ParsedModule = [module: Instantiable, options: ModuleOptions]
+function parseModule(def: Instantiable | DynamicModule): ParsedModule {
+  if (typeof def === 'function') {
+    assertModule(def)
+    const options = Reflect.getMetadata('di:module', def)
+    return [def, options]
+  } else {
+    assertModule(def.module)
+    return [def.module, def]
+  }
 }
 
-export function* combineIterables<T>(
+function isModule(value: Function): value is Instantiable {
+  return isInjectable(value) && Reflect.hasMetadata('di:module', value)
+}
+
+export function assertModule(value: Function): asserts value is Instantiable {
+  if (!isModule(value)) {
+    const name = typeof value === 'function' ? value.name : String(value)
+    throw new TypeError(`${name} is not a module.`)
+  }
+}
+
+export function* flat<T>(
   ...iterables: (null | undefined | Iterable<T>)[]
 ): Iterable<T> {
   for (const iterable of iterables) {
