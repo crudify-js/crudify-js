@@ -13,7 +13,7 @@ export function compileUseFactory<V extends Value = Value>(
 ): Factory<V> {
   const { useFactory, inject, autoDispose = true } = options
 
-  // Clone to prevent mutation
+  // Clone to protect against mutation outside of this module
   const tokens: Token[] = inject ? [...inject] : []
 
   if (useFactory.length > tokens.length) {

@@ -2,7 +2,7 @@ import { createServer } from 'node:http'
 
 import { Injector } from '@crudify-js/di'
 import { Router } from '@crudify-js/di-router'
-import { startServer } from '@crudify-js/http'
+import { asHandler, startServer } from '@crudify-js/http'
 
 import { Config } from './providers/config.js'
 import { Logger } from './providers/logger.js'
@@ -24,7 +24,7 @@ export async function server(signal: AbortSignal, injector: Injector) {
     ],
   })
 
-  const server = createServer(router.handler)
+  const server = createServer(asHandler(router.middleware))
 
   await startServer(signal, server, http.port)
 }

@@ -2,6 +2,9 @@ import { Injectable } from '../decorators/injectable.js'
 import { Value } from '../token.js'
 import { Provider } from './provider.js'
 
+// We use a function here to properly enforce the type constraint on the static
+// methods. Otherwise, TypeScript would allow calling `provideValue` and
+// `provideLazy` with any value, not just `T`.
 export function valueProvider<T extends Value = Value>(): (abstract new () => {
   value: T
 }) & {

@@ -16,7 +16,7 @@ export class Home {
   @Get('food')
   async home(
     // Parameters are automatically injected based on the type (thanks to
-    // typescrip's emit metadata)
+    // TypeScript's emit metadata)
     req: IncomingMessage,
     searchParams: URLSearchParams,
   ) {

@@ -3,7 +3,7 @@ import { Factory, FactoryInjector } from './providers/factory.js'
 import { Provider } from './providers/provider.js'
 import { Token, Value } from './token.js'
 import { allFulfilled } from './util/all-fulfilled.js'
-import { AsyncDisposableStack } from './util/disposable.js'
+import { isAsyncDisposable, isDisposable } from './util/disposable.js'
 import { once } from './util/once.js'
 import { stringify } from './util/stringify.js'
 
@@ -81,8 +81,8 @@ export class Injector implements AsyncDisposable, FactoryInjector {
 
       let ancestor: Injector = this
       while (ancestor !== injector) {
-        if (ancestor.definesToken(token)) return undefined
-        if (ancestor.definesTokens(dependencies)) return undefined
+        if (ancestor.has(token)) return undefined
+        if (ancestor.hasAny(dependencies)) return undefined
 
         ancestor = ancestor.parent!
       }
@@ -102,12 +102,14 @@ export class Injector implements AsyncDisposable, FactoryInjector {
     return undefined
   }
 
-  definesToken(token: Token) {
+  has(token: Token) {
     return this.#factories.has(token)
   }
 
-  definesTokens(tokens: Iterable<Token>) {
-    for (const token of tokens) if (this.definesToken(token)) return true
+  hasAny(tokens: Iterable<Token>) {
+    for (const token of tokens) {
+      if (this.has(token)) return true
+    }
     return false
   }
 
@@ -145,7 +147,7 @@ export class Injector implements AsyncDisposable, FactoryInjector {
         inst.dependencies.add(token)
       }
 
-      const value = factory.create(this)
+      const value = factory.create.call(null, this)
 
       // Store the value the oldest ancestor, up to the "factoryInjector" that
       // defines the factory, that has no child injector with a factory for the
@@ -153,8 +155,9 @@ export class Injector implements AsyncDisposable, FactoryInjector {
 
       let ancestor: Injector = this
       while (ancestor !== factoryInjector) {
-        if (ancestor.definesToken(token)) break
-        if (ancestor.definesTokens(dependencies)) break
+        if (ancestor.has(token)) break
+        if (ancestor.hasAny(dependencies)) break
+
         ancestor = ancestor.parent!
       }
 
@@ -164,7 +167,11 @@ export class Injector implements AsyncDisposable, FactoryInjector {
       })
 
       if (factory.autoDispose) {
-        this.#disposableStack.use(value)
+        if (isDisposable(value) || isAsyncDisposable(value)) {
+          this.#disposableStack.use(value)
+        } else {
+          // Should we throw here ?
+        }
       }
 
       return value
@@ -194,7 +201,7 @@ export class Injector implements AsyncDisposable, FactoryInjector {
     const errors = []
     try {
       await allFulfilled(
-        this.#disposeListeners.splice(0, Infinity).map(execAsync),
+        this.#disposeListeners.splice(0, Infinity).map(callAsync),
         'An error occurred during onDispose listeners execution',
       )
     } catch (error) {
@@ -218,7 +225,7 @@ export class Injector implements AsyncDisposable, FactoryInjector {
   }
 }
 
-async function execAsync(fn: () => void | Promise<void>) {
+async function callAsync(fn: () => void | Promise<void>): Promise<void> {
   await fn()
 }
 

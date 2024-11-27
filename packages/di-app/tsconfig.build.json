@@ -4,6 +4,8 @@
     "outDir": "dist",
     "rootDir": "src",
 
+    "lib": ["ES2023", "ScriptHost", "ESNext.Disposable"],
+
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true
   },

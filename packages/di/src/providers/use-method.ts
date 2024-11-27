@@ -1,5 +1,6 @@
 import { assertInjectable } from '../decorators/injectable.js'
 import { Value } from '../token.js'
+import { isObject } from '../util/is-object.js'
 import { stringify } from '../util/stringify.js'
 import { buildArguments } from './arguments.js'
 import { Factory } from './factory.js'
@@ -23,18 +24,18 @@ export function compileUseMethod<V extends Value = Value>({
     autoDispose: false,
     create: (injector) => {
       const object = injector.get(useMethod)
-      if (object == null || typeof object !== 'object') {
+      if (!isObject(object)) {
         throw new TypeError(`Invalid object ${stringify(object)}`)
       }
+
       const method =
-        methodName in object
-          ? (object as Record<typeof methodName, unknown>)[methodName]
-          : undefined
+        methodName in object ? object[methodName as keyof V] : undefined
       if (typeof method !== 'function') {
         throw new TypeError(
           `Method ${String(methodName)} not found in ${stringify(useMethod)}`,
         )
       }
+
       const injectedArgs = getArgs(injector)
 
       // @TODO (?) we could provide a special injection token allowing the method to capture

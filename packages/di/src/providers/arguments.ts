@@ -68,10 +68,10 @@ export function Derived(
   }
 }
 
-export function buildArguments(
+export function buildDefinitions(
   target: Object,
   key?: string | symbol,
-): undefined | ((injector: FactoryInjector) => Value[]) {
+): undefined | DerivedDefinition[] {
   const item = getDecoratedFunction(target, key)
   if (!item) return undefined
 
@@ -84,20 +84,20 @@ export function buildArguments(
 
   const length = Math.max(item.length, types?.length ?? 0, argDefs?.length ?? 0)
 
-  const definitons: DerivedDefinition<Value, any>[] = Array(length)
+  const definitions: DerivedDefinition<Value, any>[] = Array(length)
 
   for (let i = 0; i < length; i++) {
     const factory = argDefs?.[i]
     if (factory) {
-      definitons[i] = factory
+      definitions[i] = factory
       continue
     }
 
     const type = types?.[i]
     if (isToken(type)) {
-      definitons[i] = {
-        getter: (value: Value) => value,
+      definitions[i] = {
         tokens: [type],
+        getter: identity<Value>,
       }
       continue
     }
@@ -108,8 +108,17 @@ export function buildArguments(
     )
   }
 
-  return (injector: FactoryInjector) =>
-    definitons.map(invokeDefinition, injector)
+  return definitions
+}
+
+export function buildArguments(
+  target: Object,
+  key?: string | symbol,
+): undefined | ((injector: FactoryInjector) => Value[]) {
+  const definitions = buildDefinitions(target, key)
+  if (!definitions) return undefined
+
+  return (injector) => definitions.map(invokeDefinition, injector)
 }
 
 export function invokeDefinition<V extends Value, A extends Value[]>(
@@ -119,3 +128,5 @@ export function invokeDefinition<V extends Value, A extends Value[]>(
   const args = tokens.map(this.get, this) as A
   return getter(...args)
 }
+
+const identity = <T>(value: T) => value

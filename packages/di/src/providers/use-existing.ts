@@ -6,10 +6,10 @@ export type UseExisting<V extends Value = Value> = {
 }
 
 export function compileUseExisting<V extends Value = Value>({
-  useExisting,
+  useExisting: token,
 }: UseExisting<V>): Factory<V> {
   return {
     autoDispose: false,
-    create: (injector) => injector.get(useExisting),
+    create: (injector) => injector.get(token),
   }
 }

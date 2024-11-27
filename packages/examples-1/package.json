@@ -8,7 +8,9 @@
   "author": "Matthieu Sieben",
   "license": "ISC",
   "dependencies": {
+    "hapi": "^18.1.0"
   },
   "devDependencies": {
+    "@types/hapi": "^18.0.14"
   }
 }

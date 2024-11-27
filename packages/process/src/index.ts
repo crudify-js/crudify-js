@@ -1,15 +1,16 @@
 import { ChildProcess } from 'node:child_process'
 
-export type Runable<T> = (stopSignal: AbortSignal) => T | PromiseLike<T>
+export type Runnable = (stopSignal: AbortSignal) => void | PromiseLike<void>
 
-export async function run<T>(
-  main: Runable<T>,
-  onabort = (reason: unknown): void => {
+export async function run(
+  main: Runnable,
+  onabort = (_reason: unknown): void => {
     console.info('Shutdown initiated...')
     setupTerminator()
   },
-): Promise<T> {
+): Promise<void> {
   const stopController = new AbortController()
+  const { signal } = stopController
 
   const abort = (reason: unknown) => {
     stopController.abort(reason)
@@ -45,8 +46,10 @@ export async function run<T>(
   try {
     return await main(stopController.signal)
   } catch (err) {
-    abort(err) // main() threw an error. Make sure that the signal is aborted.
-    throw err
+    if (!signal.aborted || signal.reason !== (err as any)?.['cause']) {
+      stopController.abort(err) // main() threw an error. Make sure that the signal is aborted.
+      throw err
+    }
   } finally {
     process.removeListener('SIGINT', abort)
     process.removeListener('SIGTERM', abort)

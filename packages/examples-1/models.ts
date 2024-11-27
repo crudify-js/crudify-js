@@ -1,4 +1,4 @@
-import { default as UsersModel } from "./models/users.ts"
+import { default as UsersModel } from './models/users.ts'
 
 export const models = Object.freeze({
   users: UsersModel,
@@ -12,14 +12,13 @@ export const models = Object.freeze({
   }),
 })
 
-function createStripeModels({ prefix = ''}) {
+function createStripeModels({ prefix = '' }) {
   return {
     payment: new HttpEndpointModel({
       //
-    })
+    }),
   }
 }
-
 
 @Module({
   imports: [
@@ -29,6 +28,6 @@ function createStripeModels({ prefix = ''}) {
   providers: [
     //
     UsersModel,
-  ]
+  ],
 })
 export class AppModels {}

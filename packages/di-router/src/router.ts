@@ -1,9 +1,9 @@
 import { Injector, Instantiable, Provider, Token } from '@crudify-js/di'
-import { IncomingMessage, ServerResponse, asHandler } from '@crudify-js/http'
-import { HttpMethod, HttpParams, NextFn } from './tokens.js'
-import { URLSearchParamsProvider } from './providers.js'
-import { combineIterables } from './util.js'
+import { IncomingMessage, Middleware, ServerResponse } from '@crudify-js/http'
 import { RouteParams } from './params.js'
+import { URLSearchParamsProvider } from './providers.js'
+import { HttpMethod, HttpParams, NextFn } from './tokens.js'
+import { combineIterables } from './util.js'
 
 type RouteResult = void | Buffer
 type RouteHandler = () => RouteResult | Promise<RouteResult>
@@ -17,7 +17,7 @@ export class Router implements AsyncDisposable {
   readonly #injector: Injector
   readonly #routesMap: RoutesMap
 
-  readonly handler = asHandler(async (req, res, next) => {
+  readonly middleware: Middleware = async (req, res, next) => {
     try {
       const { method, url = '/' } = req
       if (!method) return next()
@@ -54,7 +54,7 @@ export class Router implements AsyncDisposable {
       console.error(err)
       next(err)
     }
-  })
+  }
 
   constructor(config: {
     controllers: Iterable<Instantiable>
@@ -65,7 +65,7 @@ export class Router implements AsyncDisposable {
       buildRoutes(config.controllers),
       config.providers,
     )
-    this.#injector = config.injector?.fork(providers) || new Injector(providers)
+    this.#injector = new Injector(providers, config.injector)
     this.#routesMap = this.#injector.get(RoutesMapToken)
   }
 

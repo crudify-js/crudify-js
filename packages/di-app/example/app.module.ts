@@ -1,15 +1,13 @@
 import { Module } from '@crudify-js/di-app'
 import { Home } from './controllers/home.js'
+import { ConfigModule } from './modules/config/config.module.js'
 import { UserModule } from './modules/users/users.module.js'
 import { UsersService } from './modules/users/users.service.js'
-import { HttpUtilModule } from './modules/http-util/module.js'
 
 @Module({
-  imports: [
-    UserModule,
-    HttpUtilModule.forRoot({ origin: 'https://example.com' }),
-  ],
+  imports: [UserModule, ConfigModule.forRoot()],
   exports: [UserModule],
+  provides: [AppModule],
   controllers: [Home],
 })
 export class AppModule {

@@ -22,7 +22,7 @@
 
     "types": [],
     "module": "Node16",
-    "target": "ES2022",
+    "target": "ES2023",
     "jsx": "preserve",
     "useDefineForClassFields": true,
 
